@@ -1,9 +1,9 @@
 """
 NA Bench Forecast Dashboard
 Streamlit dashboard replicating three Excel sheets:
-  1. Bench Forecast  – editable table (per-center weekly values)
-  2. Historic Bench Data – stacked bar chart by center with NA FNC line overlay
-  3. Q3 2025 tab – Q3 26 Forecast vs Q3 25 Bench vs Q3 Original Forecast line chart
+  1. Bench Forecast  - editable table (per-center weekly values)
+  2. Historic Bench Data - stacked bar chart by center with NA FNC line overlay
+  3. Q3 2025 tab - Q3 26 Forecast vs Q3 25 Bench vs Q3 Original Forecast line chart
 """
 
 import streamlit as st
@@ -11,9 +11,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Palette  —  Deep teal / amber / slate
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Palette  -  Deep teal / amber / slate
+# -----------------------------------------------------------------------------
 # Background / surfaces
 BG          = "#0d1117"      # near-black canvas
 SURFACE     = "#161b22"      # card background
@@ -27,7 +27,7 @@ GOOD        = "#34d399"      # emerald green (positive)
 WARN        = "#fb923c"      # orange (warn)
 DANGER      = "#f87171"      # soft red
 
-# Chart series colours — distinct, accessible, dark-bg friendly
+# Chart series colours - distinct, accessible, dark-bg friendly
 CENTER_COLORS = {
     "Baton Rouge":  "#38bdf8",   # sky blue
     "Buffalo":      "#818cf8",   # indigo
@@ -40,11 +40,11 @@ CENTER_COLORS = {
 }
 
 # Q3 comparison series
-C_FORECAST   = "#38bdf8"   # sky blue — Q3 26 Forecast
-C_ACTUAL     = "#34d399"   # emerald  — Q3 25 Actual
-C_ORIG       = "#94a3b8"   # slate    — Q3 Original Forecast
+C_FORECAST   = "#38bdf8"   # sky blue - Q3 26 Forecast
+C_ACTUAL     = "#34d399"   # emerald  - Q3 25 Actual
+C_ORIG       = "#94a3b8"   # slate    - Q3 Original Forecast
 
-# Table row colours — per-center (background, text)
+# Table row colours - per-center (background, text)
 CENTER_ROW_COLORS = {
     "Baton Rouge":  ("#0e2a3a", "#38bdf8"),
     "Buffalo":      ("#1a1a3e", "#818cf8"),
@@ -61,25 +61,25 @@ TBL_HEADER_FG   = ACCENT
 TBL_TOTAL_BG    = "#1c1c1c"
 TBL_TOTAL_FG    = "#ffffff"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Config
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 XLSX_PATH = Path(__file__).parent / "NA Bench Forecast.xlsx"
 CENTERS   = ["Baton Rouge", "Buffalo", "Calgary", "Halifax", "Lansing", "Monroe", "Quebec"]
 WEEKS     = [f"Wk {i:02d}" for i in range(1, 14)]
 
 st.set_page_config(
     page_title="NA Bench Forecast",
-    page_icon="🌐",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Access gate — password required
+# -----------------------------------------------------------------------------
+# Access gate - password required
 # Set via Streamlit Cloud Secrets:  [auth]  password = "your-password"
 # For local dev without secrets, set env var:  BENCH_PASSWORD=your-password
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 import os
 
 def _get_password():  # -> str | None
@@ -141,22 +141,22 @@ if _required_pw:
                     st.error("Incorrect access code.")
         st.stop()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Editing lock — admin toggle via Streamlit Cloud Secrets
+# -----------------------------------------------------------------------------
+# Editing lock - admin toggle via Streamlit Cloud Secrets
 # Set  [lock]  editing = true  in Secrets to make the forecast table read-only.
 # Remove or set to false to re-enable editing.
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 try:
     EDITING_LOCKED = bool(st.secrets["lock"]["editing"])
 except Exception:
     EDITING_LOCKED = False
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Global CSS — dark theme
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Global CSS - dark theme
+# -----------------------------------------------------------------------------
 st.markdown(f"""
 <style>
-    /* ── canvas ── */
+    /* -- canvas -- */
     html, body, [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main .block-container {{
         background: {BG} !important;
@@ -165,12 +165,12 @@ st.markdown(f"""
     [data-testid="stHeader"] {{ background: {BG} !important; }}
     [data-testid="stSidebar"] {{ background: {SURFACE} !important; }}
 
-    /* ── typography ── */
+    /* -- typography -- */
     * {{ font-family: "Inter", "Segoe UI", system-ui, sans-serif !important; }}
     h1, h2, h3, h4 {{ color: {TEXT_PRI} !important; }}
     p, li, label {{ color: {TEXT_SEC}; }}
 
-    /* ── hero header ── */
+    /* -- hero header -- */
     .dash-hero {{
         background: linear-gradient(135deg, {SURFACE} 0%, #0f2437 100%);
         border: 1px solid {BORDER};
@@ -207,7 +207,7 @@ st.markdown(f"""
         white-space: nowrap;
     }}
 
-    /* ── section titles ── */
+    /* -- section titles -- */
     .sec-title {{
         font-size: 0.82rem;
         font-weight: 700;
@@ -219,7 +219,7 @@ st.markdown(f"""
         margin: 0 0 16px;
     }}
 
-    /* ── stat cards ── */
+    /* -- stat cards -- */
     .stat-row {{ display: flex; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }}
     .stat-card {{
         flex: 1; min-width: 120px;
@@ -233,7 +233,7 @@ st.markdown(f"""
     .stat-card .delta-up   {{ color: {GOOD};  font-size: 0.78rem; }}
     .stat-card .delta-down {{ color: {DANGER}; font-size: 0.78rem; }}
 
-    /* ── tabs ── */
+    /* -- tabs -- */
     [data-testid="stTabs"] [role="tablist"] {{
         background: {SURFACE};
         border-radius: 8px 8px 0 0;
@@ -256,10 +256,10 @@ st.markdown(f"""
         border-bottom: 2px solid {ACCENT} !important;
     }}
 
-    /* ── data editor / dataframe ── */
+    /* -- data editor / dataframe -- */
     [data-testid="stDataEditor"] {{ border-radius: 8px; border: 1px solid {BORDER}; }}
 
-    /* ── data editor: header row ── */
+    /* -- data editor: header row -- */
     [data-testid="stDataEditor"] thead tr th {{
         background: {TBL_HEADER_BG} !important;
         color: {TBL_HEADER_FG} !important;
@@ -269,25 +269,25 @@ st.markdown(f"""
         letter-spacing: 0.05em;
         border-bottom: 2px solid {ACCENT} !important;
     }}
-    /* ── data editor: center (first) column ── */
+    /* -- data editor: center (first) column -- */
     [data-testid="stDataEditor"] tbody tr td:first-child {{
         background: {SURFACE2} !important;
         color: {ACCENT} !important;
         font-weight: 600 !important;
         font-size: 0.82rem !important;
     }}
-    /* ── data editor: data cells ── */
+    /* -- data editor: data cells -- */
     [data-testid="stDataEditor"] tbody tr td {{
         background: {SURFACE} !important;
         color: {TEXT_PRI} !important;
         border-color: {BORDER} !important;
     }}
-    /* ── data editor: alternating rows ── */
+    /* -- data editor: alternating rows -- */
     [data-testid="stDataEditor"] tbody tr:nth-child(even) td {{
         background: {SURFACE2} !important;
     }}
 
-    /* ── buttons ── */
+    /* -- buttons -- */
     [data-testid="stDownloadButton"] button {{
         background: transparent !important;
         border: 1px solid {ACCENT} !important;
@@ -301,7 +301,7 @@ st.markdown(f"""
         background: rgba(56,189,248,0.12) !important;
     }}
 
-    /* ── metrics ── */
+    /* -- metrics -- */
     [data-testid="metric-container"] {{
         background: {SURFACE};
         border: 1px solid {BORDER};
@@ -311,10 +311,10 @@ st.markdown(f"""
     [data-testid="stMetricValue"] {{ color: {TEXT_PRI} !important; font-size: 1.4rem !important; }}
     [data-testid="stMetricLabel"] {{ color: {TEXT_SEC} !important; font-size: 0.75rem !important; }}
 
-    /* ── multiselect ── */
+    /* -- multiselect -- */
     [data-baseweb="select"] {{ background: {SURFACE2} !important; border-color: {BORDER} !important; }}
 
-    /* ── number input ── */
+    /* -- number input -- */
     [data-testid="stNumberInput"] input {{
         background: {SURFACE2} !important;
         border: 1px solid {BORDER} !important;
@@ -347,33 +347,33 @@ st.markdown(f"""
         padding: 12px 8px 16px;
     }}
 
-    /* ── checkbox ── */
+    /* -- checkbox -- */
     [data-testid="stCheckbox"] label {{ color: {TEXT_SEC} !important; }}
 
-    /* ── dividers ── */
+    /* -- dividers -- */
     hr {{ border-color: {BORDER} !important; }}
 
     footer {{ visibility: hidden; }}
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Hero Header
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 st.markdown(f"""
 <div class="dash-hero">
-    <div class="logo-circle">🌐</div>
+    <div class="logo-circle"></div>
     <div>
         <h1>NA Bench Forecast</h1>
-        <p class="sub">North America FNC · Bench planning, historic trends &amp; quarter comparisons</p>
+        <p class="sub">North America FNC . Bench planning, historic trends &amp; quarter comparisons</p>
     </div>
     <div class="badge">Q3 2026 Active</div>
 </div>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Shared chart layout defaults
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 CHART_LAYOUT = dict(
     plot_bgcolor   = SURFACE,
     paper_bgcolor  = SURFACE,
@@ -404,9 +404,9 @@ CHART_LAYOUT = dict(
     ),
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Styled-table helper
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 def styled_table(df: pd.DataFrame, total_rows: list[str] | None = None) -> None:
     """Render a read-only DataFrame with per-center row colours, dark header, centred numbers."""
     total_rows = total_rows or []
@@ -432,13 +432,13 @@ def styled_table(df: pd.DataFrame, total_rows: list[str] | None = None) -> None:
         .apply(_row_style, axis=1)
         .apply(_col_align, axis=0)
         .set_table_styles([
-            # header row — centred, except first th (Center label stays left)
+            # header row - centred, except first th (Center label stays left)
             {"selector": "thead tr th",
              "props": f"background-color:{TBL_HEADER_BG}; color:{TBL_HEADER_FG}; "
                       f"font-weight:700; font-size:0.78rem; text-transform:uppercase; "
                       f"letter-spacing:0.05em; border-bottom:2px solid {ACCENT}; "
                       f"text-align:center; padding:7px 10px;"},
-            # first header cell — left-align the "Center" column header
+            # first header cell - left-align the "Center" column header
             {"selector": "thead tr th:first-child",
              "props": "text-align:left; padding-left:12px;"},
             # all data cells
@@ -448,7 +448,7 @@ def styled_table(df: pd.DataFrame, total_rows: list[str] | None = None) -> None:
             {"selector": "",
              "props": f"border-collapse:collapse; width:100%;"},
         ])
-        .format(precision=0, na_rep="—")
+        .format(precision=0, na_rep="-")
     )
     st.markdown(
         "<div style='overflow-x:auto;border-radius:8px;border:1px solid "
@@ -457,9 +457,9 @@ def styled_table(df: pd.DataFrame, total_rows: list[str] | None = None) -> None:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Data loaders
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 @st.cache_data
 def load_bench_forecast() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
@@ -528,9 +528,9 @@ def load_q3_center_detail() -> pd.DataFrame:
     return pd.DataFrame(rows_out, columns=["Center"] + weeks_net)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Tabs
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
     "Bench Forecast",
     "Historic Bench",
@@ -539,9 +539,9 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# TAB 1 — Editable Bench Forecast
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# TAB 1 - Editable Bench Forecast
+# =============================================================================
 with tab1:
     import streamlit.components.v1 as components
 
@@ -560,13 +560,13 @@ with tab1:
             f'</div>',
             unsafe_allow_html=True,
         )
-        st.markdown(f'<div class="sec-title">Weekly Headcount by Center — read only</div>',
+        st.markdown(f'<div class="sec-title">Weekly Headcount by Center - read only</div>',
                     unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="sec-title">Weekly Headcount by Center — click any cell to edit</div>',
+        st.markdown(f'<div class="sec-title">Weekly Headcount by Center - click any cell to edit</div>',
                     unsafe_allow_html=True)
 
-    # ── Build one combined HTML table with <input> cells ─────────────────
+    # -- Build one combined HTML table with <input> cells -----------------
     def build_editable_table(df: pd.DataFrame) -> str:
         th_style = (
             f"background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};"
@@ -698,7 +698,7 @@ window.addEventListener('load', recalc);
 """
 
     if EDITING_LOCKED:
-        # Read-only styled table — reuse the existing styled_table helper
+        # Read-only styled table - reuse the existing styled_table helper
         styled_table(working, total_rows=[])
     else:
         table_html = build_editable_table(working)
@@ -710,11 +710,11 @@ window.addEventListener('load', recalc);
 
     edited = working.copy()
 
-    # ── Grand Total + Bench % — flush below the editable table ───────────
+    # -- Grand Total + Bench % - flush below the editable table -----------
     grand_total = edited[WEEKS].sum().to_frame().T
     grand_total.insert(0, "Center", "Grand Total")
 
-    # HC input needed before bench_pct is calculated — rendered after tables
+    # HC input needed before bench_pct is calculated - rendered after tables
     hc = st.session_state.get("hc_input", 2053)
 
     bench_pct = grand_total[WEEKS].values[0] / hc * 100
@@ -727,7 +727,7 @@ window.addEventListener('load', recalc);
     st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
     styled_table(bench_pct_row, total_rows=["Bench %"])
 
-    # ── Total HC input — below the tables ─────────────────────────────────
+    # -- Total HC input - below the tables ---------------------------------
     st.markdown("<br>", unsafe_allow_html=True)
     hc_col, _ = st.columns([1, 3])
     with hc_col:
@@ -738,7 +738,7 @@ window.addEventListener('load', recalc);
     # Recompute bench_pct with the confirmed hc value
     bench_pct = grand_total[WEEKS].values[0] / hc * 100
 
-    # ── KPI strip ─────────────────────────────────────────────────────────
+    # -- KPI strip ---------------------------------------------------------
     cur_wk_totals = grand_total[WEEKS].values[0]
     peak_wk_idx   = cur_wk_totals.argmax()
     st.markdown("<br>", unsafe_allow_html=True)
@@ -748,7 +748,7 @@ window.addEventListener('load', recalc);
     k3.metric("Wk 13 Total",     f"{int(cur_wk_totals[-1])}",        f"{int(cur_wk_totals[-1]-cur_wk_totals[0]):+d} vs Wk 01")
     k4.metric("Avg Bench %",     f"{bench_pct.mean():.1f}%",         "")
 
-    # ── Filled area chart — one line per center ───────────────────────────
+    # -- Filled area chart - one line per center ---------------------------
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f'<div class="sec-title">Weekly Bench by Center</div>', unsafe_allow_html=True)
 
@@ -777,7 +777,7 @@ window.addEventListener('load', recalc);
             hovertemplate=f"<b>{center}</b><br>%{{x}}: %{{y}} heads<extra></extra>",
         ))
 
-    # Grand Total line — white, dashed, with data labels
+    # Grand Total line - white, dashed, with data labels
     total_vals = edited[WEEKS].sum().tolist()
     fig_prev.add_trace(go.Scatter(
         name="Grand Total",
@@ -804,7 +804,7 @@ window.addEventListener('load', recalc);
     fig_prev.update_layout(**layout1)
     st.plotly_chart(fig_prev, use_container_width=True)
 
-    # ── Download ───────────────────────────────────────────────────────────
+    # -- Download -----------------------------------------------------------
     st.markdown("<br>", unsafe_allow_html=True)
 
     @st.cache_data
@@ -817,18 +817,18 @@ window.addEventListener('load', recalc);
 
     dl_df = pd.concat([edited, grand_total], ignore_index=True)
     st.download_button(
-        label="⬇  Download updated forecast (.xlsx)",
+        label="  Download updated forecast (.xlsx)",
         data=to_excel_bytes(dl_df),
         file_name="NA_Bench_Forecast_updated.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# TAB 2 — Historic Bench Trend
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# TAB 2 - Historic Bench Trend
+# =============================================================================
 with tab2:
-    st.markdown(f'<div class="sec-title">All Centers · NA FNC Total overlay</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-title">All Centers . NA FNC Total overlay</div>', unsafe_allow_html=True)
 
     df_hist = load_historic()
     years_avail    = sorted(df_hist["Year"].unique())
@@ -852,7 +852,7 @@ with tab2:
     else:
         x_labels = df_f["Label"].tolist()
 
-        # ── KPI strip ─────────────────────────────────────────────────────
+        # -- KPI strip -----------------------------------------------------
         avg_cic = df_f["NA FNC"].mean()
         max_cic = df_f["NA FNC"].max()
         min_cic = df_f["NA FNC"].min()
@@ -866,7 +866,7 @@ with tab2:
         h4.metric("Latest Data Point",  f"{int(last_cic)}",  "")
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Chart ─────────────────────────────────────────────────────────
+        # -- Chart ---------------------------------------------------------
         fig_hist = go.Figure()
 
         for center in sel_centers:
@@ -881,7 +881,7 @@ with tab2:
                 hovertemplate=f"<b>{center}</b><br>%{{x}}: %{{y}}<extra></extra>",
             ))
 
-        # NA FNC total line — amber, stands out on dark stacked bars
+        # NA FNC total line - amber, stands out on dark stacked bars
         fig_hist.add_trace(go.Scatter(
             name="NA FNC Total",
             x=x_labels,
@@ -914,7 +914,7 @@ with tab2:
             height=480,
             bargap=0.06,
             title=dict(
-                text="Historic Bench — Stacked by Center  ·  NA FNC Total (amber line)",
+                text="Historic Bench - Stacked by Center  .  NA FNC Total (amber line)",
                 font=dict(size=13, color=TEXT_SEC),
                 x=0,
             ),
@@ -926,11 +926,11 @@ with tab2:
         st.plotly_chart(fig_hist, use_container_width=True)
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# TAB 3 — Q3 2025 vs Q3 2026 Comparison
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# TAB 3 - Q3 2025 vs Q3 2026 Comparison
+# =============================================================================
 with tab3:
-    st.markdown(f'<div class="sec-title">Q3 26 Forecast · Q3 25 Actual · Q3 26 Original Forecast</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-title">Q3 26 Forecast . Q3 25 Actual . Q3 26 Original Forecast</div>', unsafe_allow_html=True)
 
     df_q3 = load_q3_comparison()
 
@@ -939,18 +939,18 @@ with tab3:
     else:
         show_detail = st.checkbox("Show per-center Net bench detail", value=False)
 
-        # ── KPI strip ─────────────────────────────────────────────────────
+        # -- KPI strip -----------------------------------------------------
         if "Q3 26 Forecast" in df_q3.columns and "Q3 25 bench" in df_q3.columns:
             delta_last = int(df_q3["Q3 26 Forecast"].iloc[-1] - df_q3["Q3 25 bench"].iloc[-1])
             st.markdown("<br>", unsafe_allow_html=True)
             q1, q2, q3_col, q4 = st.columns(4)
             q1.metric("Q3 26 Forecast peak",   f"{int(df_q3['Q3 26 Forecast'].max())}")
             q2.metric("Q3 25 Bench trough",     f"{int(df_q3['Q3 25 bench'].min())}")
-            q3_col.metric("Wk 13 Δ (26 vs 25)", f"{delta_last:+d}")
+            q3_col.metric("Wk 13 Delta (26 vs 25)", f"{delta_last:+d}")
             q4.metric("Q3 Orig Forecast peak",  f"{int(df_q3['Q3 Original Forecast'].max())}")
             st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Chart ─────────────────────────────────────────────────────────
+        # -- Chart ---------------------------------------------------------
         fig_q3 = go.Figure()
 
         series_cfg = {
@@ -994,7 +994,7 @@ with tab3:
         layout3.update(dict(
             height=440,
             title=dict(
-                text="Q3 Total Bench Comparison — 13-week view",
+                text="Q3 Total Bench Comparison - 13-week view",
                 font=dict(size=13, color=TEXT_SEC),
                 x=0,
             ),
@@ -1005,7 +1005,7 @@ with tab3:
         fig_q3.update_layout(**layout3)
         st.plotly_chart(fig_q3, use_container_width=True)
 
-        # ── Per-center stacked detail (optional) ──────────────────────────
+        # -- Per-center stacked detail (optional) --------------------------
         if show_detail:
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(f'<div class="sec-title">Per-Center Q3 2025 Net Bench by Week</div>', unsafe_allow_html=True)
@@ -1035,15 +1035,15 @@ with tab3:
                 styled_table(df_detail)
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# TAB 4 — Executive Summary
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# TAB 4 - Executive Summary
+# =============================================================================
 with tab4:
-    st.markdown(f'<div class="sec-title">Executive Summary — Dynamic Email Draft</div>',
+    st.markdown(f'<div class="sec-title">Executive Summary - Dynamic Email Draft</div>',
                 unsafe_allow_html=True)
     st.caption("All highlighted figures update automatically as you edit the forecast data.")
 
-    # ── Pull data from session state / already-computed values ────────────
+    # -- Pull data from session state / already-computed values ------------
     _fc   = load_bench_forecast()
     _hc   = st.session_state.get("hc_input", 2053)
     _work = st.session_state.get("forecast_data", _fc).copy()
@@ -1083,7 +1083,7 @@ with tab4:
     _hist_lbl  = str(_hist_last["Label"]) if _hist_last is not None else "latest"
     _hist_fnc  = int(_hist_last["NA FNC"]) if _hist_last is not None else 0
 
-    # ── Email meta controls ───────────────────────────────────────────────
+    # -- Email meta controls -----------------------------------------------
     st.markdown("<br>", unsafe_allow_html=True)
     em1, em2, em3 = st.columns(3)
     with em1:
@@ -1098,7 +1098,7 @@ with tab4:
         tone          = st.selectbox("Tone", ["Professional", "Executive Summary", "Detailed"],
                                      key="em_tone")
 
-    # ── Dynamic narrative engine ───────────────────────────────────────────
+    # -- Dynamic narrative engine -------------------------------------------
     def _hl(text: str, color: str = ACCENT) -> str:
         """Wrap text in a colored highlight span."""
         return f'<span style="color:{color};font-weight:700">{text}</span>'
@@ -1142,7 +1142,7 @@ with tab4:
         )
         p_action = (
             f"Average bench rate of {_hl(f'{_avg_pct:.1f}%', avg_color)} is "
-            + (f"{_hl('above', DANGER)} the {_hl(f'{bench_target:.1f}%')} target — "
+            + (f"{_hl('above', DANGER)} the {_hl(f'{bench_target:.1f}%')} target - "
                f"immediate placement actions are recommended."
                if _avg_pct > bench_target else
                f"{_hl('within', GOOD)} the {_hl(f'{bench_target:.1f}%')} target range.")
@@ -1226,7 +1226,7 @@ with tab4:
         )
         paragraphs = [p_opening, p_trend, p_centers, p_yoy, p_action]
 
-    # ── Render the email preview ───────────────────────────────────────────
+    # -- Render the email preview -------------------------------------------
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f'<div class="sec-title">Preview</div>', unsafe_allow_html=True)
 
@@ -1316,7 +1316,7 @@ with tab4:
 
     st.markdown(email_html, unsafe_allow_html=True)
 
-    # ── Plain-text copy version ────────────────────────────────────────────
+    # -- Plain-text copy version --------------------------------------------
     import re, json
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1327,7 +1327,7 @@ with tab4:
 
     FONT = "Aptos, Aptos Display, Calibri, sans-serif"
 
-    # ── SVG helper ────────────────────────────────────────────────────────
+    # -- SVG helper --------------------------------------------------------
     def _svg_grid_and_labels(w, h, pad, vals, x_labels, max_val):
         """Return (x_fn, y_fn, grid_svg) for a line chart area."""
         iw = w - pad["l"] - pad["r"]
@@ -1350,7 +1350,7 @@ with tab4:
                      f'font-size="9" fill="#8b949e" font-family="{FONT}">{lbl}</text>')
         return xf, yf, grid
 
-    # ── Chart 1: Q3 Comparison — 3-line chart ────────────────────────────
+    # -- Chart 1: Q3 Comparison - 3-line chart ----------------------------
     q3_series = {
         "Q3 26 Forecast":       (C_FORECAST, list(_q3["Q3 26 Forecast"])       if not _q3.empty else []),
         "Q3 25 Bench":          (C_ACTUAL,   list(_q3["Q3 25 bench"])           if not _q3.empty else []),
@@ -1396,7 +1396,7 @@ with tab4:
         f'</svg>'
     )
 
-    # ── Chart 2: Historic Bench — stacked by center + NA FNC amber line ───
+    # -- Chart 2: Historic Bench - stacked by center + NA FNC amber line ---
     _hist_data   = load_historic()
     _hb_centers  = ["Baton Rouge", "East Lansing", "Monroe", "Buffalo", "Halifax", "Quebec", "Calgary"]
     # Keep only center columns that actually exist in the dataframe
@@ -1432,7 +1432,7 @@ with tab4:
                        f'<text x="{hb_pad["l"]-5}" y="{gy+4:.1f}" text-anchor="end" '
                        f'font-size="9" fill="#8b949e" font-family="{FONT}">{gi}</text>')
 
-        # Stacked bars — one segment per center per x position
+        # Stacked bars - one segment per center per x position
         for i, row in enumerate(_hb_df.itertuples()):
             bx      = hb_xf(i) - bar_w / 2
             bottom  = 0.0
@@ -1480,7 +1480,7 @@ with tab4:
                            f'font-size="8" fill="{ACCENT2}" font-weight="bold" '
                            f'font-family="{FONT}">{int(v)}</text>')
 
-        # Legend — centers + amber total line
+        # Legend - centers + amber total line
         _leg_items = [(c, CENTER_COLORS.get(c, TEXT_SEC), "rect") for c in _hb_centers]
         _leg_items += [("NA FNC Total", ACCENT2, "line")]
         _leg_cols  = 4
@@ -1500,7 +1500,7 @@ with tab4:
     hb_svg += '</svg>'
     hist_bench_svg = hb_svg
 
-    # ── KPI pill HTML ─────────────────────────────────────────────────────
+    # -- KPI pill HTML -----------------------------------------------------
     def _pill(label, val, color):
         return (
             f'<div style="display:inline-block;background:#21262d;border:1px solid #30363d;'
@@ -1516,7 +1516,7 @@ with tab4:
         _pill("Avg Rate", f"{_avg_pct:.1f}%", avg_color)
     )
 
-    # ── Center snapshot table rows ────────────────────────────────────────
+    # -- Center snapshot table rows ----------------------------------------
     snap_rows = ""
     for c in CENTERS:
         bg, fg = CENTER_ROW_COLORS.get(c, (SURFACE, TEXT_PRI))
@@ -1535,7 +1535,7 @@ with tab4:
             f'</tr>'
         )
 
-    # ── Assemble the full HTML email ──────────────────────────────────────
+    # -- Assemble the full HTML email --------------------------------------
     para_blocks = "".join(
         f'<p style="margin:0 0 12px;line-height:1.75;color:#e6edf3">{p}</p>'
         for p in plain_paras
@@ -1561,7 +1561,7 @@ with tab4:
         '  user-select:none;'
         '}'
         'summary::-webkit-details-marker{display:none}'
-        'summary::after{content:"›";font-size:16px;transition:transform .2s;margin-left:auto;padding-left:12px}'
+        'summary::after{content:"\\203a";font-size:16px;transition:transform .2s;margin-left:auto;padding-left:12px}'
         'details[open] summary::after{transform:rotate(90deg)}'
         '.sec-body{padding:0 28px 16px}'
     )
@@ -1585,14 +1585,14 @@ with tab4:
         f'<body style="background:#0d1117;padding:24px">'
         f'<div style="max-width:640px;margin:0 auto;background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">'
 
-        # Header — always visible, no collapse
+        # Header - always visible, no collapse
         f'<div style="background:linear-gradient(135deg,#161b22 0%,#0f2437 100%);border-bottom:2px solid #38bdf8;padding:24px 28px 18px">'
         f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#8b949e;margin-bottom:6px">{region_label} Workforce Communication</div>'
         f'<div style="font-size:20px;font-weight:700;color:#e6edf3">{quarter_label} Bench Forecast Update &#8212; {report_week}</div>'
         f'<div style="font-size:12px;color:#8b949e;margin-top:4px">From: {sender_name} &nbsp;&middot;&nbsp; Auto-generated from Dashboard</div>'
         f'</div>'
 
-        # KPI pills — always visible
+        # KPI pills - always visible
         f'<div style="padding:16px 24px 12px;border-bottom:1px solid #30363d">{pills_html}</div>'
 
         # Collapsible: Commentary
@@ -1650,13 +1650,13 @@ with tab4:
             open_by_default=True,
         )
 
-        # Footer — always visible
+        # Footer - always visible
         + f'<div style="padding:12px 28px;background:#21262d;border-top:1px solid #30363d;'
         f'font-size:11px;color:#8b949e">Auto-generated from the NA Bench Forecast Dashboard &nbsp;&middot;&nbsp; {sender_name}</div>'
         f'</div></body></html>'
     )
 
-    # ── Render with toolbar + copy button ─────────────────────────────────
+    # -- Render with toolbar + copy button ---------------------------------
     escaped_html = full_html.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
 
     report_component = f"""
@@ -1711,9 +1711,9 @@ function copyHTML() {{
         components.html(report_component, height=2200, scrolling=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Footer
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 st.markdown(f"""
 <div style="text-align:center;color:{TEXT_SEC};font-size:0.75rem;
             border-top:1px solid {BORDER};margin-top:48px;padding-top:14px;">
