@@ -1356,47 +1356,70 @@ with tab4:
     import matplotlib.ticker as mticker
     import io, base64
 
+    # Outlook-safe chart colors — light background so charts are visible in email
+    _CH_BG     = "#ffffff"   # figure background
+    _CH_PLOT   = "#f8f9fa"   # axes background
+    _CH_GRID   = "#dee2e6"   # gridlines
+    _CH_TICK   = "#495057"   # tick labels
+    _CH_SPINE  = "#ced4da"   # axis borders
+    _CH_LEG_BG = "#ffffff"   # legend background
+
+    # Series colors — keep brand colors but use slightly deeper versions for light bg
+    _Q3_COLORS = {
+        "Q3 26 Forecast":   "#0284c7",   # darker sky blue
+        "Q3 25 Bench":      "#059669",   # darker emerald
+        "Q3 Orig Forecast": "#64748b",   # slate
+    }
+
     def _fig_to_img_tag(fig) -> str:
-        """Convert a matplotlib figure to a base64 <img> tag Outlook can render."""
+        """Render figure to base64 PNG <img> tag — Outlook-safe (light bg, width attr)."""
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=130, bbox_inches="tight",
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight",
                     facecolor=fig.get_facecolor())
         plt.close(fig)
         b64 = base64.b64encode(buf.getvalue()).decode()
-        return f'<img src="data:image/png;base64,{b64}" style="width:100%;max-width:580px;display:block;margin:12px auto" alt="chart"/>'
+        # width="600" is an HTML attribute — Outlook respects this; CSS width is ignored
+        return (
+            f'<img src="data:image/png;base64,{b64}" '
+            f'width="600" style="display:block;margin:8px 0;border:1px solid #dee2e6;border-radius:4px" '
+            f'alt="chart"/>'
+        )
 
     # -- Chart 1: Q3 Comparison - 3-line chart (matplotlib PNG) -----------
     q3_series = {
-        "Q3 26 Forecast":   (C_FORECAST, list(_q3["Q3 26 Forecast"])       if not _q3.empty else []),
-        "Q3 25 Bench":      (C_ACTUAL,   list(_q3["Q3 25 bench"])           if not _q3.empty else []),
-        "Q3 Orig Forecast": (C_ORIG,     list(_q3["Q3 Original Forecast"])  if not _q3.empty else []),
+        "Q3 26 Forecast":   (list(_q3["Q3 26 Forecast"])       if not _q3.empty else []),
+        "Q3 25 Bench":      (list(_q3["Q3 25 bench"])           if not _q3.empty else []),
+        "Q3 Orig Forecast": (list(_q3["Q3 Original Forecast"])  if not _q3.empty else []),
     }
     q3_wk_labels = list(_q3.index) if not _q3.empty else WEEKS
 
-    fig1, ax1 = plt.subplots(figsize=(7, 2.8), facecolor="#161b22")
-    ax1.set_facecolor("#161b22")
-    for name, (col, vals) in q3_series.items():
+    fig1, ax1 = plt.subplots(figsize=(8, 3.2), facecolor=_CH_BG)
+    ax1.set_facecolor(_CH_PLOT)
+    for name, vals in q3_series.items():
         if not vals:
             continue
-        ls = "--" if name == "Q3 Orig Forecast" else "-"
-        ax1.plot(q3_wk_labels, vals, color=col, linewidth=2, linestyle=ls,
-                 marker="o", markersize=4, label=name)
+        col = _Q3_COLORS[name]
+        ls  = "--" if name == "Q3 Orig Forecast" else "-"
+        ax1.plot(q3_wk_labels, vals, color=col, linewidth=2.2, linestyle=ls,
+                 marker="o", markersize=5, label=name)
         for i, v in enumerate(vals):
             ax1.annotate(str(int(v)), (q3_wk_labels[i], v),
-                         textcoords="offset points", xytext=(0, 6),
-                         ha="center", fontsize=6.5, color=col, fontweight="bold")
+                         textcoords="offset points", xytext=(0, 7),
+                         ha="center", fontsize=7, color=col, fontweight="bold")
     ax1.set_xticks(range(len(q3_wk_labels)))
     ax1.set_xticklabels(q3_wk_labels, rotation=45, ha="right",
-                        fontsize=7, color="#8b949e")
-    ax1.tick_params(axis="y", labelsize=7, labelcolor="#8b949e")
+                        fontsize=7.5, color=_CH_TICK)
+    ax1.tick_params(axis="y", labelsize=7.5, labelcolor=_CH_TICK)
     ax1.yaxis.set_major_locator(mticker.MaxNLocator(5, integer=True))
     for spine in ax1.spines.values():
-        spine.set_edgecolor("#30363d")
-    ax1.tick_params(colors="#30363d")
-    ax1.grid(axis="y", color="#30363d", linewidth=0.5)
-    ax1.legend(fontsize=7, facecolor="#21262d", edgecolor="#30363d",
-               labelcolor="linecolor", loc="upper right")
-    fig1.tight_layout(pad=0.5)
+        spine.set_edgecolor(_CH_SPINE)
+    ax1.tick_params(colors=_CH_SPINE)
+    ax1.grid(axis="y", color=_CH_GRID, linewidth=0.6)
+    ax1.set_title("Q3 Comparison - Forecast vs Actuals", fontsize=9,
+                  color=_CH_TICK, pad=6)
+    ax1.legend(fontsize=7.5, facecolor=_CH_LEG_BG, edgecolor=_CH_SPINE,
+               loc="upper right")
+    fig1.tight_layout(pad=0.6)
     q3_chart_svg = _fig_to_img_tag(fig1)
 
     # -- Chart 2: Historic Bench - stacked by center + NA FNC amber line ---
@@ -1412,15 +1435,15 @@ with tab4:
         n_hb      = len(hb_labels)
         x_pos     = list(range(n_hb))
 
-        fig2, ax2 = plt.subplots(figsize=(8, 3.2), facecolor="#161b22")
-        ax2.set_facecolor("#161b22")
+        fig2, ax2 = plt.subplots(figsize=(8, 3.6), facecolor=_CH_BG)
+        ax2.set_facecolor(_CH_PLOT)
 
         # Stacked bars per center
         bottoms = [0.0] * n_hb
         for center in _hb_centers:
             vals = [float(_hb_df.iloc[i][center] or 0) for i in range(n_hb)]
             col  = CENTER_COLORS.get(center, TEXT_SEC)
-            ax2.bar(x_pos, vals, bottom=bottoms, color=col, alpha=0.85,
+            ax2.bar(x_pos, vals, bottom=bottoms, color=col, alpha=0.88,
                     width=0.78, label=center)
             bottoms = [bottoms[i] + vals[i] for i in range(n_hb)]
 
@@ -1429,34 +1452,36 @@ with tab4:
         for i, row in enumerate(_hb_df.itertuples()):
             cur_q = (row.Year, row.Quarter)
             if prev_q and cur_q != prev_q:
-                ax2.axvline(x=i - 0.5, color="#30363d", linewidth=0.8,
+                ax2.axvline(x=i - 0.5, color=_CH_SPINE, linewidth=0.8,
                             linestyle="--")
             prev_q = cur_q
 
-        # Amber NA FNC total line
-        ax2.plot(x_pos, hb_totals, color=ACCENT2, linewidth=2,
-                 marker="o", markersize=3.5, label="NA FNC Total", zorder=5)
+        # Amber NA FNC total line — use darker orange for light bg
+        _hb_line_col = "#d97706"
+        ax2.plot(x_pos, hb_totals, color=_hb_line_col, linewidth=2.2,
+                 marker="o", markersize=4, label="NA FNC Total", zorder=5)
         for i, v in enumerate(hb_totals):
             if n_hb <= 16 or i % 2 == 0:
                 ax2.annotate(str(int(v)), (i, v),
-                             textcoords="offset points", xytext=(0, 5),
-                             ha="center", fontsize=5.5, color=ACCENT2,
+                             textcoords="offset points", xytext=(0, 6),
+                             ha="center", fontsize=6.5, color=_hb_line_col,
                              fontweight="bold")
 
         # Axis styling
         tick_step = max(1, n_hb // 16)
         ax2.set_xticks(x_pos[::tick_step])
         ax2.set_xticklabels(hb_labels[::tick_step], rotation=45, ha="right",
-                            fontsize=6, color="#8b949e")
-        ax2.tick_params(axis="y", labelsize=6.5, labelcolor="#8b949e")
+                            fontsize=6.5, color=_CH_TICK)
+        ax2.tick_params(axis="y", labelsize=7, labelcolor=_CH_TICK)
         for spine in ax2.spines.values():
-            spine.set_edgecolor("#30363d")
-        ax2.tick_params(colors="#30363d")
-        ax2.grid(axis="y", color="#30363d", linewidth=0.4)
-        ax2.legend(fontsize=6, facecolor="#21262d", edgecolor="#30363d",
-                   labelcolor="linecolor", loc="upper left",
-                   ncol=4, framealpha=0.9)
-        fig2.tight_layout(pad=0.5)
+            spine.set_edgecolor(_CH_SPINE)
+        ax2.tick_params(colors=_CH_SPINE)
+        ax2.grid(axis="y", color=_CH_GRID, linewidth=0.5)
+        ax2.set_title("Historic Bench - Stacked by Center | NA FNC Total (amber line)",
+                      fontsize=9, color=_CH_TICK, pad=6)
+        ax2.legend(fontsize=6.5, facecolor=_CH_LEG_BG, edgecolor=_CH_SPINE,
+                   loc="upper left", ncol=4, framealpha=0.95)
+        fig2.tight_layout(pad=0.6)
         hist_bench_svg = _fig_to_img_tag(fig2)
     else:
         hist_bench_svg = '<p style="color:#8b949e;font-size:12px;padding:12px">No historic data available.</p>'
