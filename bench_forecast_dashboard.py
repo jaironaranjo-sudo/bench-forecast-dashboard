@@ -142,6 +142,16 @@ if _required_pw:
         st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Editing lock — admin toggle via Streamlit Cloud Secrets
+# Set  [lock]  editing = true  in Secrets to make the forecast table read-only.
+# Remove or set to false to re-enable editing.
+# ─────────────────────────────────────────────────────────────────────────────
+try:
+    EDITING_LOCKED = bool(st.secrets["lock"]["editing"])
+except Exception:
+    EDITING_LOCKED = False
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Global CSS — dark theme
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -541,8 +551,20 @@ with tab1:
 
     working = st.session_state["forecast_data"].copy()
 
-    st.markdown(f'<div class="sec-title">Weekly Headcount by Center — click any cell to edit</div>',
-                unsafe_allow_html=True)
+    if EDITING_LOCKED:
+        st.markdown(
+            f'<div style="background:#2d1a00;border:1px solid {ACCENT2};border-left:4px solid {ACCENT2};'
+            f'border-radius:6px;padding:10px 16px;margin-bottom:12px;font-size:13px;color:{ACCENT2};">'
+            f'&#128274; <strong>Forecast table is locked.</strong> '
+            f'Editing has been disabled by the administrator. Contact your manager to request changes.'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(f'<div class="sec-title">Weekly Headcount by Center — read only</div>',
+                    unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="sec-title">Weekly Headcount by Center — click any cell to edit</div>',
+                    unsafe_allow_html=True)
 
     # ── Build one combined HTML table with <input> cells ─────────────────
     def build_editable_table(df: pd.DataFrame) -> str:
@@ -675,9 +697,13 @@ window.addEventListener('load', recalc);
 {js}
 """
 
-    table_html = build_editable_table(working)
-    # Row height: 40px per center + 44px for grand-total row + 38px header — no extra padding
-    components.html(table_html, height=len(CENTERS) * 40 + 82, scrolling=False)
+    if EDITING_LOCKED:
+        # Read-only styled table — reuse the existing styled_table helper
+        styled_table(working, total_rows=[])
+    else:
+        table_html = build_editable_table(working)
+        # Row height: 40px per center + 44px for grand-total row + 38px header
+        components.html(table_html, height=len(CENTERS) * 40 + 82, scrolling=False)
 
     # Pull everything that follows up to close the iframe's bottom whitespace
     st.markdown("<div style='margin-top:-2rem'></div>", unsafe_allow_html=True)
