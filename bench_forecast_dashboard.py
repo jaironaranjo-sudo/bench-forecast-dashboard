@@ -1706,7 +1706,7 @@ function copyHTML() {{
 }}
 </script>
 """
-    with st.expander("HTML Email Report - with Charts", expanded=True):
+    with st.expander("HTML Email Report - with Charts", expanded=True, icon=None):
         st.caption("Click Copy HTML - paste into Outlook (Insert HTML) or open in browser.")
         components.html(report_component, height=2200, scrolling=True)
 
