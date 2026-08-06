@@ -1392,7 +1392,7 @@ with tab4:
         """Reference a CID-attached image — for Outlook .eml only."""
         return (
             f'<img src="cid:{cid}" '
-            f'width="600" style="display:block;margin:8px 0;border:1px solid #dee2e6" '
+            f'width="100%" style="display:block;margin:8px 0;border-top:1px solid #30363d;border-bottom:1px solid #30363d" '
             f'alt="chart"/>'
         )
 
@@ -1404,7 +1404,7 @@ with tab4:
     }
     q3_wk_labels = list(_q3.index) if not _q3.empty else WEEKS
 
-    fig1, ax1 = plt.subplots(figsize=(8, 3.2), facecolor=_CH_BG)
+    fig1, ax1 = plt.subplots(figsize=(12, 3.5), facecolor=_CH_BG)
     ax1.set_facecolor(_CH_PLOT)
     for name, vals in q3_series.items():
         if not vals:
@@ -1447,7 +1447,7 @@ with tab4:
         n_hb      = len(hb_labels)
         x_pos     = list(range(n_hb))
 
-        fig2, ax2 = plt.subplots(figsize=(8, 3.6), facecolor=_CH_BG)
+        fig2, ax2 = plt.subplots(figsize=(12, 4.0), facecolor=_CH_BG)
         ax2.set_facecolor(_CH_PLOT)
 
         # Stacked bars per center
@@ -1582,8 +1582,8 @@ with tab4:
         'h2,h3,p,td,th,div,span,summary,input,button{{font-family:inherit}}'
         f'{details_css}'
         f'</style></head>'
-        f'<body style="background:#0d1117;padding:24px">'
-        f'<div style="max-width:640px;margin:0 auto;background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden">'
+        f'<body style="background:#0d1117;margin:0;padding:0">'
+        f'<div style="width:100%;background:#161b22;">'
 
         # Header - always visible, no collapse
         f'<div style="background:linear-gradient(135deg,#161b22 0%,#0f2437 100%);border-bottom:2px solid #38bdf8;padding:24px 28px 18px">'
