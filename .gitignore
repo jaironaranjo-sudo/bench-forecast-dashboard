@@ -1,0 +1,9 @@
+# Temp Office lock files
+~$*
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
