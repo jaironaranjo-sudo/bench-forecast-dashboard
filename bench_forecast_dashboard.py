@@ -532,10 +532,10 @@ def load_q3_center_detail() -> pd.DataFrame:
 # Tabs
 # ─────────────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs([
-    "  📋  Bench Forecast  ",
-    "  📈  Historic Bench  ",
-    "  🔀  Q3 Comparison  ",
-    "  ✉️  Executive Summary  ",
+    "Bench Forecast",
+    "Historic Bench",
+    "Q3 Comparison",
+    "Executive Summary",
 ])
 
 
