@@ -1656,6 +1656,18 @@ with tab4:
         f'</div></body></html>'
     )
 
+    # -- Build .eml download ------------------------------------------------
+    import email.mime.multipart
+    import email.mime.text
+
+    eml_subject = f"{quarter_label} Bench Forecast Update - {report_week}"
+    msg = email.mime.multipart.MIMEMultipart("alternative")
+    msg["Subject"] = eml_subject
+    msg["From"]    = sender_name
+    msg["To"]      = ""
+    msg.attach(email.mime.text.MIMEText(full_html, "html", "utf-8"))
+    eml_bytes = msg.as_bytes()
+
     # -- Render with toolbar + copy button ---------------------------------
     escaped_html = full_html.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
 
@@ -1707,7 +1719,16 @@ function copyHTML() {{
 </script>
 """
     with st.expander("HTML Email Report - with Charts", expanded=True, icon=None):
-        st.caption("Click Copy HTML - paste into Outlook (Insert HTML) or open in browser.")
+        eml_col, _ = st.columns([1, 3])
+        with eml_col:
+            st.download_button(
+                label="Download as .eml (open in Outlook)",
+                data=eml_bytes,
+                file_name=f"Bench_Forecast_{quarter_label.replace(' ', '_')}_{report_week.replace(' ', '_')}.eml",
+                mime="message/rfc822",
+                use_container_width=True,
+            )
+        st.caption("Double-click the downloaded .eml file to open it in Outlook as a ready-to-send draft.")
         components.html(report_component, height=2200, scrolling=True)
 
 
