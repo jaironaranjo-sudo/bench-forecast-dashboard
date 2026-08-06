@@ -1350,155 +1350,116 @@ with tab4:
                      f'font-size="9" fill="#8b949e" font-family="{FONT}">{lbl}</text>')
         return xf, yf, grid
 
-    # -- Chart 1: Q3 Comparison - 3-line chart ----------------------------
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as mticker
+    import io, base64
+
+    def _fig_to_img_tag(fig) -> str:
+        """Convert a matplotlib figure to a base64 <img> tag Outlook can render."""
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=130, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        plt.close(fig)
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        return f'<img src="data:image/png;base64,{b64}" style="width:100%;max-width:580px;display:block;margin:12px auto" alt="chart"/>'
+
+    # -- Chart 1: Q3 Comparison - 3-line chart (matplotlib PNG) -----------
     q3_series = {
-        "Q3 26 Forecast":       (C_FORECAST, list(_q3["Q3 26 Forecast"])       if not _q3.empty else []),
-        "Q3 25 Bench":          (C_ACTUAL,   list(_q3["Q3 25 bench"])           if not _q3.empty else []),
-        "Q3 Orig Forecast":     (C_ORIG,     list(_q3["Q3 Original Forecast"])  if not _q3.empty else []),
+        "Q3 26 Forecast":   (C_FORECAST, list(_q3["Q3 26 Forecast"])       if not _q3.empty else []),
+        "Q3 25 Bench":      (C_ACTUAL,   list(_q3["Q3 25 bench"])           if not _q3.empty else []),
+        "Q3 Orig Forecast": (C_ORIG,     list(_q3["Q3 Original Forecast"])  if not _q3.empty else []),
     }
     q3_wk_labels = list(_q3.index) if not _q3.empty else WEEKS
 
-    q3_all_vals = [v for _, vals in q3_series.values() for v in vals if v == v]
-    q3_max      = max(q3_all_vals) * 1.12 if q3_all_vals else 300
-    q3_w, q3_h  = 560, 200
-    q3_pad      = dict(l=40, r=20, t=24, b=32)
-
-    xf3, yf3, q3_grid = _svg_grid_and_labels(
-        q3_w, q3_h, q3_pad, list(range(len(q3_wk_labels))), q3_wk_labels, q3_max
-    )
-
-    q3_lines = q3_grid
-    legend_x  = q3_pad["l"]
-    for idx, (name, (col, vals)) in enumerate(q3_series.items()):
+    fig1, ax1 = plt.subplots(figsize=(7, 2.8), facecolor="#161b22")
+    ax1.set_facecolor("#161b22")
+    for name, (col, vals) in q3_series.items():
         if not vals:
             continue
-        pts = " ".join(f"{xf3(i):.1f},{yf3(v):.1f}" for i, v in enumerate(vals))
-        dash = "6,3" if name == "Q3 Orig Forecast" else "none"
-        q3_lines += (f'<polyline points="{pts}" fill="none" stroke="{col}" '
-                     f'stroke-width="2.2" stroke-dasharray="{dash}" stroke-linejoin="round"/>')
+        ls = "--" if name == "Q3 Orig Forecast" else "-"
+        ax1.plot(q3_wk_labels, vals, color=col, linewidth=2, linestyle=ls,
+                 marker="o", markersize=4, label=name)
         for i, v in enumerate(vals):
-            cx, cy = xf3(i), yf3(v)
-            q3_lines += (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3.5" fill="{col}" '
-                         f'stroke="#161b22" stroke-width="1.5"/>')
-            q3_lines += (f'<text x="{cx:.1f}" y="{cy-8:.1f}" text-anchor="middle" '
-                         f'font-size="9" fill="{col}" font-weight="bold" '
-                         f'font-family="{FONT}">{int(v)}</text>')
-        # Legend dot + label
-        lx = legend_x + idx * 185
-        q3_lines += (f'<circle cx="{lx+6}" cy="10" r="4" fill="{col}"/>'
-                     f'<text x="{lx+14}" y="14" font-size="9" fill="{col}" '
-                     f'font-family="{FONT}" font-weight="600">{name}</text>')
-
-    q3_chart_svg = (
-        f'<svg width="{q3_w}" height="{q3_h}" xmlns="http://www.w3.org/2000/svg">'
-        f'<rect width="{q3_w}" height="{q3_h}" fill="#161b22" rx="6"/>'
-        f'{q3_lines}'
-        f'</svg>'
-    )
+            ax1.annotate(str(int(v)), (q3_wk_labels[i], v),
+                         textcoords="offset points", xytext=(0, 6),
+                         ha="center", fontsize=6.5, color=col, fontweight="bold")
+    ax1.set_xticks(range(len(q3_wk_labels)))
+    ax1.set_xticklabels(q3_wk_labels, rotation=45, ha="right",
+                        fontsize=7, color="#8b949e")
+    ax1.tick_params(axis="y", labelsize=7, labelcolor="#8b949e")
+    ax1.yaxis.set_major_locator(mticker.MaxNLocator(5, integer=True))
+    for spine in ax1.spines.values():
+        spine.set_edgecolor("#30363d")
+    ax1.tick_params(colors="#30363d")
+    ax1.grid(axis="y", color="#30363d", linewidth=0.5)
+    ax1.legend(fontsize=7, facecolor="#21262d", edgecolor="#30363d",
+               labelcolor="linecolor", loc="upper right")
+    fig1.tight_layout(pad=0.5)
+    q3_chart_svg = _fig_to_img_tag(fig1)
 
     # -- Chart 2: Historic Bench - stacked by center + NA FNC amber line ---
     _hist_data   = load_historic()
     _hb_centers  = ["Baton Rouge", "East Lansing", "Monroe", "Buffalo", "Halifax", "Quebec", "Calgary"]
-    # Keep only center columns that actually exist in the dataframe
     _hb_centers  = [c for c in _hb_centers if c in _hist_data.columns]
 
-    hb_w, hb_h   = 560, 240
-    hb_pad       = dict(l=45, r=20, t=28, b=52)
-    hb_iw        = hb_w - hb_pad["l"] - hb_pad["r"]
-    hb_ih        = hb_h - hb_pad["t"] - hb_pad["b"]
-
-    hb_svg = (f'<svg width="{hb_w}" height="{hb_h}" xmlns="http://www.w3.org/2000/svg">'
-              f'<rect width="{hb_w}" height="{hb_h}" fill="#161b22" rx="6"/>')
-
+    # -- Chart 2: Historic Bench - stacked bars + amber line (matplotlib PNG)
     if not _hist_data.empty and _hb_centers:
         _hb_df    = _hist_data.sort_values(["Year", "Quarter", "Week"]).copy()
         hb_labels = _hb_df["Label"].tolist()
         hb_totals = _hb_df["NA FNC"].tolist()
         n_hb      = len(hb_labels)
-        hb_max    = max(hb_totals) * 1.15 if hb_totals else 1
-        gap       = hb_iw / n_hb
-        bar_w     = gap * 0.78
+        x_pos     = list(range(n_hb))
 
-        def hb_xf(i):  return hb_pad["l"] + i * gap + gap / 2
-        def hb_yf(v):  return hb_pad["t"] + hb_ih - (v / hb_max * hb_ih)
+        fig2, ax2 = plt.subplots(figsize=(8, 3.2), facecolor="#161b22")
+        ax2.set_facecolor("#161b22")
 
-        # Y gridlines
-        _hb_step = max(1, int(hb_max // 5))
-        for gi in range(0, int(hb_max) + 1, _hb_step):
-            gy = hb_yf(gi)
-            hb_svg += (f'<line x1="{hb_pad["l"]}" y1="{gy:.1f}" '
-                       f'x2="{hb_pad["l"]+hb_iw}" y2="{gy:.1f}" '
-                       f'stroke="#30363d" stroke-width="1"/>'
-                       f'<text x="{hb_pad["l"]-5}" y="{gy+4:.1f}" text-anchor="end" '
-                       f'font-size="9" fill="#8b949e" font-family="{FONT}">{gi}</text>')
+        # Stacked bars per center
+        bottoms = [0.0] * n_hb
+        for center in _hb_centers:
+            vals = [float(_hb_df.iloc[i][center] or 0) for i in range(n_hb)]
+            col  = CENTER_COLORS.get(center, TEXT_SEC)
+            ax2.bar(x_pos, vals, bottom=bottoms, color=col, alpha=0.85,
+                    width=0.78, label=center)
+            bottoms = [bottoms[i] + vals[i] for i in range(n_hb)]
 
-        # Stacked bars - one segment per center per x position
-        for i, row in enumerate(_hb_df.itertuples()):
-            bx      = hb_xf(i) - bar_w / 2
-            bottom  = 0.0
-            for center in _hb_centers:
-                val = float(getattr(row, center.replace(" ", "_"), 0) or 0)
-                if val <= 0:
-                    continue
-                seg_h = val / hb_max * hb_ih
-                seg_y = hb_yf(bottom + val)
-                col   = CENTER_COLORS.get(center, TEXT_SEC)
-                hb_svg += (f'<rect x="{bx:.1f}" y="{seg_y:.1f}" '
-                           f'width="{bar_w:.1f}" height="{seg_h:.1f}" '
-                           f'fill="{col}" opacity="0.85"/>')
-                bottom += val
-
-        # Quarter boundary dotted lines + x-axis labels (every other tick if crowded)
+        # Quarter boundary dotted lines
         prev_q = None
         for i, row in enumerate(_hb_df.itertuples()):
             cur_q = (row.Year, row.Quarter)
             if prev_q and cur_q != prev_q:
-                lx2 = hb_pad["l"] + i * gap
-                hb_svg += (f'<line x1="{lx2:.1f}" y1="{hb_pad["t"]}" '
-                           f'x2="{lx2:.1f}" y2="{hb_pad["t"]+hb_ih}" '
-                           f'stroke="#30363d" stroke-width="1" stroke-dasharray="4,2"/>')
-            if n_hb <= 16 or i % 2 == 0:
-                tx = hb_xf(i)
-                ty = hb_h - 4
-                hb_svg += (f'<text x="{tx:.1f}" y="{ty}" text-anchor="end" '
-                           f'font-size="8" fill="#8b949e" font-family="{FONT}" '
-                           f'transform="rotate(-45,{tx:.1f},{ty})">'
-                           f'{hb_labels[i]}</text>')
+                ax2.axvline(x=i - 0.5, color="#30363d", linewidth=0.8,
+                            linestyle="--")
             prev_q = cur_q
 
-        # NA FNC amber overlay line with data labels
-        line_pts = " ".join(f"{hb_xf(i):.1f},{hb_yf(v):.1f}" for i, v in enumerate(hb_totals))
-        hb_svg += (f'<polyline points="{line_pts}" fill="none" stroke="{ACCENT2}" '
-                   f'stroke-width="2.2" stroke-linejoin="round"/>')
+        # Amber NA FNC total line
+        ax2.plot(x_pos, hb_totals, color=ACCENT2, linewidth=2,
+                 marker="o", markersize=3.5, label="NA FNC Total", zorder=5)
         for i, v in enumerate(hb_totals):
-            cx, cy = hb_xf(i), hb_yf(v)
-            hb_svg += (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3" fill="{ACCENT2}" '
-                       f'stroke="#161b22" stroke-width="1.2"/>')
-            # Show label on every other point to avoid crowding
             if n_hb <= 16 or i % 2 == 0:
-                hb_svg += (f'<text x="{cx:.1f}" y="{cy-7:.1f}" text-anchor="middle" '
-                           f'font-size="8" fill="{ACCENT2}" font-weight="bold" '
-                           f'font-family="{FONT}">{int(v)}</text>')
+                ax2.annotate(str(int(v)), (i, v),
+                             textcoords="offset points", xytext=(0, 5),
+                             ha="center", fontsize=5.5, color=ACCENT2,
+                             fontweight="bold")
 
-        # Legend - centers + amber total line
-        _leg_items = [(c, CENTER_COLORS.get(c, TEXT_SEC), "rect") for c in _hb_centers]
-        _leg_items += [("NA FNC Total", ACCENT2, "line")]
-        _leg_cols  = 4
-        for li, (name, col, shape) in enumerate(_leg_items):
-            lx3 = hb_pad["l"] + (li % _leg_cols) * 128
-            ly3 = hb_pad["t"] + hb_ih + 30 + (li // _leg_cols) * 14
-            if shape == "rect":
-                hb_svg += (f'<rect x="{lx3}" y="{ly3-7}" width="10" height="8" '
-                           f'fill="{col}" rx="1" opacity="0.85"/>')
-            else:
-                hb_svg += (f'<line x1="{lx3}" y1="{ly3-3}" x2="{lx3+10}" y2="{ly3-3}" '
-                           f'stroke="{col}" stroke-width="2"/>'
-                           f'<circle cx="{lx3+5}" cy="{ly3-3}" r="2.5" fill="{col}"/>')
-            hb_svg += (f'<text x="{lx3+14}" y="{ly3}" font-size="8" fill="{col}" '
-                       f'font-family="{FONT}">{name}</text>')
-
-    hb_svg += '</svg>'
-    hist_bench_svg = hb_svg
+        # Axis styling
+        tick_step = max(1, n_hb // 16)
+        ax2.set_xticks(x_pos[::tick_step])
+        ax2.set_xticklabels(hb_labels[::tick_step], rotation=45, ha="right",
+                            fontsize=6, color="#8b949e")
+        ax2.tick_params(axis="y", labelsize=6.5, labelcolor="#8b949e")
+        for spine in ax2.spines.values():
+            spine.set_edgecolor("#30363d")
+        ax2.tick_params(colors="#30363d")
+        ax2.grid(axis="y", color="#30363d", linewidth=0.4)
+        ax2.legend(fontsize=6, facecolor="#21262d", edgecolor="#30363d",
+                   labelcolor="linecolor", loc="upper left",
+                   ncol=4, framealpha=0.9)
+        fig2.tight_layout(pad=0.5)
+        hist_bench_svg = _fig_to_img_tag(fig2)
+    else:
+        hist_bench_svg = '<p style="color:#8b949e;font-size:12px;padding:12px">No historic data available.</p>'
 
     # -- KPI pill HTML -----------------------------------------------------
     def _pill(label, val, color):
