@@ -1499,72 +1499,85 @@ with tab4:
         hist_bench_svg = _png_to_b64_tag(_hb_png)   # dashboard preview (browser)
     else:
         _hb_png        = None
-        hist_bench_svg = '<p style="color:#8b949e;font-size:12px;padding:12px">No historic data available.</p>'
+        hist_bench_svg = f'<p style="color:{TEXT_SEC};font-size:12px;padding:12px">No historic data available.</p>'
+
+    # -- Email theme tokens (light, Outlook-safe) --------------------------
+    EM_BG       = "#f4f4f4"   # page background
+    EM_SURF     = "#ffffff"   # card / section background
+    EM_SURF2    = "#e8e8e8"   # alternate row / raised
+    EM_BORDER   = "#c6c6c6"   # dividers
+    EM_TEXT     = "#161616"   # primary text
+    EM_MUTED    = "#525252"   # muted / labels
+    EM_ACCENT   = "#0f62fe"   # IBM Blue 60
+    EM_GOOD     = "#198038"   # IBM Green 60
+    EM_WARN     = "#da1e28"   # IBM Red 60
+    EM_ORANGE   = "#f1620a"   # IBM Orange 50
 
     # -- KPI pill HTML -----------------------------------------------------
     def _pill(label, val, color):
         return (
-            f'<div style="display:inline-block;background:#21262d;border:1px solid #30363d;'
-            f'border-radius:20px;padding:5px 14px;font-size:12px;margin:3px;">'
+            f'<div style="display:inline-block;background:{EM_SURF};border:1px solid {EM_BORDER};'
+            f'border-left:3px solid {color};'
+            f'border-radius:4px;padding:5px 14px;font-size:12px;margin:3px;">'
             f'{label}: <strong style="color:{color}">{val}</strong></div>'
         )
 
     pills_html = (
         _pill("Bench " + report_week, f"{_gt_w1} ({_w1_pct:.1f}%)", w1_color) +
-        _pill("Peak", f"{_peak_val} @ {_peak_wk}", ACCENT) +
-        _pill("Target", f"{bench_target:.1f}%", ACCENT) +
-        _pill("YoY W1 &#916;", f"{_q3_delta:+d}", '#f87171' if _q3_delta > 0 else '#34d399') +
+        _pill("Peak", f"{_peak_val} @ {_peak_wk}", EM_ACCENT) +
+        _pill("Target", f"{bench_target:.1f}%", EM_ACCENT) +
+        _pill("YoY W1 &#916;", f"{_q3_delta:+d}", EM_WARN if _q3_delta > 0 else EM_GOOD) +
         _pill("Avg Rate", f"{_avg_pct:.1f}%", avg_color)
     )
 
     # -- Center snapshot table rows ----------------------------------------
     snap_rows = ""
     for c in CENTERS:
-        bg, fg = CENTER_ROW_COLORS.get(c, (SURFACE, TEXT_PRI))
+        bg, fg = CENTER_ROW_COLORS.get(c, (EM_SURF, EM_TEXT))
         row_s  = _work[_work["Center"] == c]
         v1     = int(row_s[WEEKS[0]].values[0])  if not row_s.empty else 0
         v13    = int(row_s[WEEKS[-1]].values[0]) if not row_s.empty else 0
         arrow  = '&#9650; Up'   if v13 > v1 else ('&#9660; Down' if v13 < v1 else '&#8212; Flat')
-        ac     = '#34d399' if v13 < v1 else ('#fb923c' if v13 > v1 else '#8b949e')
+        ac     = EM_GOOD if v13 < v1 else (EM_WARN if v13 > v1 else EM_MUTED)
         snap_rows += (
             f'<tr>'
-            f'<td style="padding:6px 10px;background:{bg};color:{fg};font-weight:600;border:1px solid #30363d">{c}</td>'
-            f'<td style="padding:6px 10px;text-align:center;background:{bg};color:{fg};border:1px solid #30363d">{v1}</td>'
-            f'<td style="padding:6px 10px;text-align:center;background:{bg};color:{fg};border:1px solid #30363d">{v13}</td>'
-            f'<td style="padding:6px 10px;text-align:center;background:{bg};border:1px solid #30363d">'
-            f'<span style="color:{ac}">{arrow}</span></td>'
+            f'<td style="padding:6px 10px;background:{bg};color:{fg};font-weight:600;border:1px solid {EM_BORDER}">{c}</td>'
+            f'<td style="padding:6px 10px;text-align:center;background:{bg};color:{fg};border:1px solid {EM_BORDER}">{v1}</td>'
+            f'<td style="padding:6px 10px;text-align:center;background:{bg};color:{fg};border:1px solid {EM_BORDER}">{v13}</td>'
+            f'<td style="padding:6px 10px;text-align:center;background:{bg};border:1px solid {EM_BORDER}">'
+            f'<span style="color:{ac};font-weight:600">{arrow}</span></td>'
             f'</tr>'
         )
 
     # -- Assemble the full HTML email --------------------------------------
     para_blocks = "".join(
-        f'<p style="margin:0 0 12px;line-height:1.75;color:#e6edf3">{p}</p>'
+        f'<p style="margin:0 0 12px;line-height:1.75;color:{EM_TEXT}">{p}</p>'
         for p in plain_paras
     )
 
     th_style = (
-        'style="padding:7px 10px;background:#0f2437;color:#38bdf8;'
-        'font-size:11px;font-weight:700;text-transform:uppercase;'
-        'letter-spacing:0.05em;border:1px solid #30363d;text-align:center"'
+        f'style="padding:7px 10px;background:{EM_ACCENT};color:#ffffff;'
+        f'font-size:11px;font-weight:700;text-transform:uppercase;'
+        f'letter-spacing:0.05em;border:1px solid {EM_BORDER};text-align:center"'
     )
     th_left = th_style.replace("text-align:center", "text-align:left")
 
     # Shared styles injected once into the <head> for collapsible sections
     details_css = (
-        'details{border-top:1px solid #30363d;}'
-        'details[open] summary{border-bottom:1px solid #21262d;}'
+        f'details{{border-top:1px solid {EM_BORDER};}}'
+        f'details[open] summary{{border-bottom:1px solid {EM_SURF2};}}'
         'summary{'
         '  display:flex;align-items:center;justify-content:space-between;'
-        '  padding:13px 28px;cursor:pointer;list-style:none;'
+        f'  padding:13px 28px;cursor:pointer;list-style:none;background:{EM_SURF};'
         '  font-size:11px;font-weight:700;text-transform:uppercase;'
-        '  letter-spacing:0.08em;color:#38bdf8;'
-        '  border-left:3px solid #38bdf8;margin-left:0;'
+        f'  letter-spacing:0.08em;color:{EM_ACCENT};'
+        f'  border-left:3px solid {EM_ACCENT};margin-left:0;'
         '  user-select:none;'
         '}'
         'summary::-webkit-details-marker{display:none}'
         'summary::after{content:"\\203a";font-size:16px;transition:transform .2s;margin-left:auto;padding-left:12px}'
         'details[open] summary::after{transform:rotate(90deg)}'
-        '.sec-body{padding:0 28px 16px}'
+        f'.sec-body{{padding:0 28px 16px;background:{EM_SURF}}}'
     )
 
     def _section(title: str, content: str, open_by_default: bool = True) -> str:
@@ -1579,22 +1592,22 @@ with tab4:
     full_html = (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
         f'<style>'
-        f'body{{margin:0;padding:0;background:#0d1117;font-family:{FONT}}}'
-        'h2,h3,p,td,th,div,span,summary,input,button{{font-family:inherit}}'
+        f'body{{margin:0;padding:0;background:{EM_BG};font-family:{FONT}}}'
+        'h2,h3,p,td,th,div,span,summary,input,button{font-family:inherit}'
         f'{details_css}'
         f'</style></head>'
-        f'<body style="background:#0d1117;margin:0;padding:0">'
-        f'<div style="width:100%;background:#161b22;">'
+        f'<body style="background:{EM_BG};margin:0;padding:0">'
+        f'<div style="width:100%;background:{EM_SURF};">'
 
-        # Header - always visible, no collapse
-        f'<div style="background:linear-gradient(135deg,#161b22 0%,#0f2437 100%);border-bottom:2px solid #38bdf8;padding:24px 28px 18px">'
-        f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#8b949e;margin-bottom:6px">{region_label} Workforce Communication</div>'
-        f'<div style="font-size:20px;font-weight:700;color:#e6edf3">{quarter_label} Bench Forecast Update &#8212; {report_week}</div>'
-        f'<div style="font-size:12px;color:#8b949e;margin-top:4px">From: {sender_name} &nbsp;&middot;&nbsp; Auto-generated from Dashboard</div>'
+        # Header - blue gradient banner
+        f'<div style="background:linear-gradient(135deg,{EM_ACCENT} 0%,#0043ce 100%);padding:24px 28px 18px">'
+        f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.7);margin-bottom:6px">{region_label} Workforce Communication</div>'
+        f'<div style="font-size:20px;font-weight:700;color:#ffffff">{quarter_label} Bench Forecast Update &#8212; {report_week}</div>'
+        f'<div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px">From: {sender_name} &nbsp;&middot;&nbsp; Auto-generated from Dashboard</div>'
         f'</div>'
 
-        # KPI pills - always visible
-        f'<div style="padding:16px 24px 12px;border-bottom:1px solid #30363d">{pills_html}</div>'
+        # KPI pills
+        f'<div style="padding:16px 24px 12px;border-bottom:2px solid {EM_ACCENT};background:{EM_SURF}">{pills_html}</div>'
 
         # Collapsible: Commentary
         + _section("Commentary", para_blocks, open_by_default=True)
@@ -1633,27 +1646,27 @@ with tab4:
             "Summary",
             (
                 f'<table style="border-collapse:collapse;width:100%;font-size:13px">'
-                f'<tr><td style="padding:4px 8px;color:#8b949e;width:160px">Wk01 Bench</td>'
-                f'<td style="padding:4px 8px;color:{w1_color};font-weight:700">{_gt_w1} ({_w1_pct:.1f}%) '
+                f'<tr><td style="padding:6px 10px;color:{EM_MUTED};width:160px;border-bottom:1px solid {EM_BORDER}">Wk01 Bench</td>'
+                f'<td style="padding:6px 10px;color:{w1_color};font-weight:700;border-bottom:1px solid {EM_BORDER}">{_gt_w1} ({_w1_pct:.1f}%) '
                 f'{"&#9888; ABOVE TARGET" if _w1_pct > bench_target else "&#10003; ON TARGET"}</td></tr>'
-                f'<tr><td style="padding:4px 8px;color:#8b949e">Wk13 Bench</td>'
-                f'<td style="padding:4px 8px;color:{w13_color};font-weight:700">{_gt_w13} ({_w13_pct:.1f}%)</td></tr>'
-                f'<tr><td style="padding:4px 8px;color:#8b949e">Peak Week</td>'
-                f'<td style="padding:4px 8px;color:#38bdf8;font-weight:700">{_peak_val} @ {_peak_wk}</td></tr>'
-                f'<tr><td style="padding:4px 8px;color:#8b949e">Avg Bench Rate</td>'
-                f'<td style="padding:4px 8px;color:{avg_color};font-weight:700">{_avg_pct:.1f}% '
+                f'<tr><td style="padding:6px 10px;color:{EM_MUTED};border-bottom:1px solid {EM_BORDER}">Wk13 Bench</td>'
+                f'<td style="padding:6px 10px;color:{w13_color};font-weight:700;border-bottom:1px solid {EM_BORDER}">{_gt_w13} ({_w13_pct:.1f}%)</td></tr>'
+                f'<tr><td style="padding:6px 10px;color:{EM_MUTED};border-bottom:1px solid {EM_BORDER}">Peak Week</td>'
+                f'<td style="padding:6px 10px;color:{EM_ACCENT};font-weight:700;border-bottom:1px solid {EM_BORDER}">{_peak_val} @ {_peak_wk}</td></tr>'
+                f'<tr><td style="padding:6px 10px;color:{EM_MUTED};border-bottom:1px solid {EM_BORDER}">Avg Bench Rate</td>'
+                f'<td style="padding:6px 10px;color:{avg_color};font-weight:700;border-bottom:1px solid {EM_BORDER}">{_avg_pct:.1f}% '
                 f'{"&#9888; ABOVE TARGET" if _avg_pct > bench_target else "&#10003; ON TARGET"}</td></tr>'
-                f'<tr><td style="padding:4px 8px;color:#8b949e">YoY W1 Delta</td>'
-                f'<td style="padding:4px 8px;color:{"#f87171" if _q3_delta > 0 else "#34d399"};font-weight:700">'
+                f'<tr><td style="padding:6px 10px;color:{EM_MUTED}">YoY W1 Delta</td>'
+                f'<td style="padding:6px 10px;color:{EM_WARN if _q3_delta > 0 else EM_GOOD};font-weight:700">'
                 f'{_q3_delta:+d} vs Q3 2025 ({_q3_ac_w1} actual &#8594; {_q3_fc_w1} forecast)</td></tr>'
                 f'</table>'
             ),
             open_by_default=True,
         )
 
-        # Footer - always visible
-        + f'<div style="padding:12px 28px;background:#21262d;border-top:1px solid #30363d;'
-        f'font-size:11px;color:#8b949e">Auto-generated from the NA Bench Forecast Dashboard &nbsp;&middot;&nbsp; {sender_name}</div>'
+        # Footer
+        + f'<div style="padding:12px 28px;background:{EM_SURF2};border-top:2px solid {EM_ACCENT};'
+        f'font-size:11px;color:{EM_MUTED}">Auto-generated from the NA Bench Forecast Dashboard &nbsp;&middot;&nbsp; {sender_name}</div>'
         f'</div></body></html>'
     )
 
