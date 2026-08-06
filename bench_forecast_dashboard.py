@@ -82,7 +82,7 @@ st.set_page_config(
 # ─────────────────────────────────────────────────────────────────────────────
 import os
 
-def _get_password() -> str | None:
+def _get_password():  # -> str | None
     """Return the required password, or None if no gate is configured."""
     try:
         return st.secrets["auth"]["password"]
