@@ -76,6 +76,72 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Access gate — password required
+# Set via Streamlit Cloud Secrets:  [auth]  password = "your-password"
+# For local dev without secrets, set env var:  BENCH_PASSWORD=your-password
+# ─────────────────────────────────────────────────────────────────────────────
+import os
+
+def _get_password() -> str | None:
+    """Return the required password, or None if no gate is configured."""
+    try:
+        return st.secrets["auth"]["password"]
+    except Exception:
+        return os.environ.get("BENCH_PASSWORD")
+
+_required_pw = _get_password()
+
+if _required_pw:
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if not st.session_state.authenticated:
+        st.markdown(f"""
+        <style>
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{
+            background: {BG} !important;
+        }}
+        .lock-wrap {{
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 80vh;
+        }}
+        .lock-card {{
+            background: {SURFACE}; border: 1px solid {BORDER};
+            border-top: 3px solid {ACCENT}; border-radius: 12px;
+            padding: 40px 44px; max-width: 380px; width: 100%;
+            text-align: center;
+        }}
+        .lock-title {{
+            font-size: 18px; font-weight: 700; color: {TEXT_PRI};
+            margin-bottom: 4px;
+        }}
+        .lock-sub {{
+            font-size: 13px; color: {TEXT_SEC}; margin-bottom: 28px;
+        }}
+        </style>
+        <div class="lock-wrap">
+          <div class="lock-card">
+            <div class="lock-title">NA Bench Forecast</div>
+            <div class="lock-sub">IBM FNC Workforce Planning &mdash; restricted access</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        pw_input = st.text_input(
+            "Access code", type="password", placeholder="Enter access code...",
+            label_visibility="collapsed",
+        )
+        col_btn, _ = st.columns([1, 3])
+        with col_btn:
+            if st.button("Unlock", use_container_width=True):
+                if pw_input == _required_pw:
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect access code.")
+        st.stop()
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Global CSS — dark theme
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown(f"""
