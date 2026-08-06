@@ -1371,17 +1371,28 @@ with tab4:
         "Q3 Orig Forecast": "#64748b",   # slate
     }
 
-    def _fig_to_img_tag(fig) -> str:
-        """Render figure to base64 PNG <img> tag — Outlook-safe (light bg, width attr)."""
+    def _fig_to_png_bytes(fig) -> bytes:
+        """Render a matplotlib figure to raw PNG bytes and close it."""
         buf = io.BytesIO()
         fig.savefig(buf, format="png", dpi=150, bbox_inches="tight",
                     facecolor=fig.get_facecolor())
         plt.close(fig)
-        b64 = base64.b64encode(buf.getvalue()).decode()
-        # width="600" is an HTML attribute — Outlook respects this; CSS width is ignored
+        return buf.getvalue()
+
+    def _png_to_b64_tag(png_bytes: bytes) -> str:
+        """Embed PNG bytes as a base64 data-URI <img> — for browser preview only."""
+        b64 = base64.b64encode(png_bytes).decode()
         return (
             f'<img src="data:image/png;base64,{b64}" '
-            f'width="600" style="display:block;margin:8px 0;border:1px solid #dee2e6;border-radius:4px" '
+            f'width="600" style="display:block;margin:8px 0;border:1px solid #dee2e6" '
+            f'alt="chart"/>'
+        )
+
+    def _png_to_cid_tag(cid: str) -> str:
+        """Reference a CID-attached image — for Outlook .eml only."""
+        return (
+            f'<img src="cid:{cid}" '
+            f'width="600" style="display:block;margin:8px 0;border:1px solid #dee2e6" '
             f'alt="chart"/>'
         )
 
@@ -1420,7 +1431,8 @@ with tab4:
     ax1.legend(fontsize=7.5, facecolor=_CH_LEG_BG, edgecolor=_CH_SPINE,
                loc="upper right")
     fig1.tight_layout(pad=0.6)
-    q3_chart_svg = _fig_to_img_tag(fig1)
+    _q3_png       = _fig_to_png_bytes(fig1)
+    q3_chart_svg  = _png_to_b64_tag(_q3_png)   # dashboard preview (browser)
 
     # -- Chart 2: Historic Bench - stacked by center + NA FNC amber line ---
     _hist_data   = load_historic()
@@ -1482,8 +1494,10 @@ with tab4:
         ax2.legend(fontsize=6.5, facecolor=_CH_LEG_BG, edgecolor=_CH_SPINE,
                    loc="upper left", ncol=4, framealpha=0.95)
         fig2.tight_layout(pad=0.6)
-        hist_bench_svg = _fig_to_img_tag(fig2)
+        _hb_png        = _fig_to_png_bytes(fig2)
+        hist_bench_svg = _png_to_b64_tag(_hb_png)   # dashboard preview (browser)
     else:
+        _hb_png        = None
         hist_bench_svg = '<p style="color:#8b949e;font-size:12px;padding:12px">No historic data available.</p>'
 
     # -- KPI pill HTML -----------------------------------------------------
@@ -1642,17 +1656,41 @@ with tab4:
         f'</div></body></html>'
     )
 
-    # -- Build .eml download ------------------------------------------------
+    # -- Build .eml with CID-attached chart images (Outlook compatible) -----
     import email.mime.multipart
     import email.mime.text
+    import email.mime.image
 
-    eml_subject = f"{quarter_label} Bench Forecast Update - {report_week}"
-    msg = email.mime.multipart.MIMEMultipart("alternative")
-    msg["Subject"] = eml_subject
-    msg["From"]    = sender_name
-    msg["To"]      = ""
-    msg.attach(email.mime.text.MIMEText(full_html, "html", "utf-8"))
-    eml_bytes = msg.as_bytes()
+    # Build a version of the HTML where base64 data-URIs are replaced with cid: refs
+    eml_html = full_html.replace(q3_chart_svg,  _png_to_cid_tag("chart_q3.png"))
+    if _hb_png:
+        eml_html = eml_html.replace(hist_bench_svg, _png_to_cid_tag("chart_hist.png"))
+
+    # multipart/related wraps the HTML body + inline image attachments
+    eml_subject  = f"{quarter_label} Bench Forecast Update - {report_week}"
+    msg_outer    = email.mime.multipart.MIMEMultipart("mixed")
+    msg_outer["Subject"] = eml_subject
+    msg_outer["From"]    = sender_name
+    msg_outer["To"]      = ""
+
+    msg_related = email.mime.multipart.MIMEMultipart("related")
+    msg_related.attach(email.mime.text.MIMEText(eml_html, "html", "utf-8"))
+
+    # Attach Q3 chart PNG as inline CID image
+    img_part1 = email.mime.image.MIMEImage(_q3_png, _subtype="png")
+    img_part1.add_header("Content-ID", "<chart_q3.png>")
+    img_part1.add_header("Content-Disposition", "inline", filename="chart_q3.png")
+    msg_related.attach(img_part1)
+
+    # Attach historic bench chart PNG as inline CID image
+    if _hb_png:
+        img_part2 = email.mime.image.MIMEImage(_hb_png, _subtype="png")
+        img_part2.add_header("Content-ID", "<chart_hist.png>")
+        img_part2.add_header("Content-Disposition", "inline", filename="chart_hist.png")
+        msg_related.attach(img_part2)
+
+    msg_outer.attach(msg_related)
+    eml_bytes = msg_outer.as_bytes()
 
     # -- Render with toolbar + copy button ---------------------------------
     escaped_html = full_html.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
