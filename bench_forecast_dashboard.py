@@ -12,53 +12,53 @@ import plotly.graph_objects as go
 from pathlib import Path
 
 # -----------------------------------------------------------------------------
-# Palette  -  Deep teal / amber / slate
+# Palette  -  IBM Light theme
 # -----------------------------------------------------------------------------
 # Background / surfaces
-BG          = "#0d1117"      # near-black canvas
-SURFACE     = "#161b22"      # card background
-SURFACE2    = "#21262d"      # raised / hover
-BORDER      = "#30363d"      # subtle divider
-TEXT_PRI    = "#e6edf3"      # primary text
-TEXT_SEC    = "#8b949e"      # muted / labels
-ACCENT      = "#38bdf8"      # sky-blue accent (headers, highlights)
-ACCENT2     = "#f59e0b"      # amber (secondary accent)
-GOOD        = "#34d399"      # emerald green (positive)
-WARN        = "#fb923c"      # orange (warn)
-DANGER      = "#f87171"      # soft red
+BG          = "#f4f4f4"      # IBM Gray 10 - page canvas
+SURFACE     = "#ffffff"      # white card
+SURFACE2    = "#e8e8e8"      # IBM Gray 20 - raised / hover
+BORDER      = "#c6c6c6"      # IBM Gray 30 - dividers
+TEXT_PRI    = "#161616"      # IBM Gray 100 - primary text
+TEXT_SEC    = "#525252"      # IBM Gray 60 - muted / labels
+ACCENT      = "#0f62fe"      # IBM Blue 60 - primary accent
+ACCENT2     = "#f1620a"      # IBM Orange 50 - secondary accent
+GOOD        = "#198038"      # IBM Green 60 - positive
+WARN        = "#f1c21b"      # IBM Yellow 30 - warning
+DANGER      = "#da1e28"      # IBM Red 60 - danger
 
-# Chart series colours - distinct, accessible, dark-bg friendly
+# Chart series colours - distinct, accessible, light-bg friendly
 CENTER_COLORS = {
-    "Baton Rouge":  "#38bdf8",   # sky blue
-    "Buffalo":      "#818cf8",   # indigo
-    "Calgary":      "#34d399",   # emerald
-    "Halifax":      "#f59e0b",   # amber
-    "Lansing":      "#fb923c",   # orange
-    "Monroe":       "#e879f9",   # fuchsia
-    "Quebec":       "#a3e635",   # lime
-    "East Lansing": "#818cf8",   # indigo (same family as Buffalo for historic tab)
+    "Baton Rouge":  "#0f62fe",   # IBM Blue 60
+    "Buffalo":      "#6929c4",   # IBM Purple 60
+    "Calgary":      "#198038",   # IBM Green 60
+    "Halifax":      "#b28600",   # IBM Yellow 50
+    "Lansing":      "#f1620a",   # IBM Orange 50
+    "Monroe":       "#9f1853",   # IBM Magenta 60
+    "Quebec":       "#007d79",   # IBM Teal 60
+    "East Lansing": "#6929c4",   # IBM Purple 60
 }
 
 # Q3 comparison series
-C_FORECAST   = "#38bdf8"   # sky blue - Q3 26 Forecast
-C_ACTUAL     = "#34d399"   # emerald  - Q3 25 Actual
-C_ORIG       = "#94a3b8"   # slate    - Q3 Original Forecast
+C_FORECAST   = "#0f62fe"   # IBM Blue 60
+C_ACTUAL     = "#198038"   # IBM Green 60
+C_ORIG       = "#6f6f6f"   # IBM Gray 50
 
-# Table row colours - per-center (background, text)
+# Table row colours - per-center (background, text) - light tints
 CENTER_ROW_COLORS = {
-    "Baton Rouge":  ("#0e2a3a", "#38bdf8"),
-    "Buffalo":      ("#1a1a3e", "#818cf8"),
-    "Calgary":      ("#0d2e22", "#34d399"),
-    "Halifax":      ("#2e2200", "#f59e0b"),
-    "Lansing":      ("#2e1800", "#fb923c"),
-    "Monroe":       ("#2a0e2a", "#e879f9"),
-    "Quebec":       ("#1a2200", "#a3e635"),
-    "East Lansing": ("#1a1a3e", "#818cf8"),
+    "Baton Rouge":  ("#d0e2ff", "#0043ce"),
+    "Buffalo":      ("#e8daff", "#491d8b"),
+    "Calgary":      ("#defbe6", "#0e6027"),
+    "Halifax":      ("#fdf6dd", "#8e6a00"),
+    "Lansing":      ("#fff2e8", "#ba4e00"),
+    "Monroe":       ("#ffe0eb", "#740937"),
+    "Quebec":       ("#d9fbfb", "#004144"),
+    "East Lansing": ("#e8daff", "#491d8b"),
 }
 # Header row for styled read-only tables
-TBL_HEADER_BG   = "#0f2437"
-TBL_HEADER_FG   = ACCENT
-TBL_TOTAL_BG    = "#1c1c1c"
+TBL_HEADER_BG   = "#0f62fe"
+TBL_HEADER_FG   = "#ffffff"
+TBL_TOTAL_BG    = "#393939"
 TBL_TOTAL_FG    = "#ffffff"
 
 # -----------------------------------------------------------------------------
@@ -166,14 +166,13 @@ st.markdown(f"""
     [data-testid="stSidebar"] {{ background: {SURFACE} !important; }}
 
     /* -- typography -- */
-    * {{ font-family: "Inter", "Segoe UI", system-ui, sans-serif !important; }}
+    * {{ font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif !important; }}
     h1, h2, h3, h4 {{ color: {TEXT_PRI} !important; }}
     p, li, label {{ color: {TEXT_SEC}; }}
 
     /* -- hero header -- */
     .dash-hero {{
-        background: linear-gradient(135deg, {SURFACE} 0%, #0f2437 100%);
-        border: 1px solid {BORDER};
+        background: linear-gradient(135deg, {ACCENT} 0%, #0043ce 100%);
         border-radius: 10px;
         padding: 28px 36px 22px;
         margin-bottom: 28px;
@@ -183,24 +182,24 @@ st.markdown(f"""
     }}
     .dash-hero .logo-circle {{
         width: 52px; height: 52px;
-        background: {ACCENT};
+        background: rgba(255,255,255,0.2);
         border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
         font-size: 1.6rem; flex-shrink: 0;
     }}
     .dash-hero h1 {{
         margin: 0 0 4px; font-size: 1.55rem; font-weight: 700;
-        color: {TEXT_PRI} !important;
+        color: #ffffff !important;
         letter-spacing: -0.3px;
     }}
     .dash-hero .sub {{
-        font-size: 0.83rem; color: {TEXT_SEC}; margin: 0;
+        font-size: 0.83rem; color: rgba(255,255,255,0.75); margin: 0;
     }}
     .dash-hero .badge {{
         margin-left: auto;
-        background: rgba(56,189,248,0.12);
-        border: 1px solid rgba(56,189,248,0.3);
-        color: {ACCENT};
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.4);
+        color: #ffffff;
         border-radius: 20px;
         padding: 4px 14px;
         font-size: 0.78rem; font-weight: 600;
@@ -238,7 +237,7 @@ st.markdown(f"""
         background: {SURFACE};
         border-radius: 8px 8px 0 0;
         padding: 4px 8px 0;
-        border-bottom: 1px solid {BORDER};
+        border-bottom: 2px solid {ACCENT};
         gap: 4px;
     }}
     [data-testid="stTabs"] button[role="tab"] {{
@@ -252,8 +251,9 @@ st.markdown(f"""
     }}
     [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{
         color: {ACCENT} !important;
-        background: rgba(56,189,248,0.08) !important;
-        border-bottom: 2px solid {ACCENT} !important;
+        background: #e8f0fe !important;
+        border-bottom: 3px solid {ACCENT} !important;
+        font-weight: 700 !important;
     }}
 
     /* -- data editor / dataframe -- */
@@ -272,7 +272,7 @@ st.markdown(f"""
     /* -- data editor: center (first) column -- */
     [data-testid="stDataEditor"] tbody tr td:first-child {{
         background: {SURFACE2} !important;
-        color: {ACCENT} !important;
+        color: {TEXT_PRI} !important;
         font-weight: 600 !important;
         font-size: 0.82rem !important;
     }}
@@ -288,35 +288,36 @@ st.markdown(f"""
     }}
 
     /* -- buttons -- */
-    [data-testid="stDownloadButton"] button {{
-        background: transparent !important;
-        border: 1px solid {ACCENT} !important;
-        color: {ACCENT} !important;
-        border-radius: 6px;
+    [data-testid="stDownloadButton"] button, [data-testid="stButton"] button {{
+        background: {ACCENT} !important;
+        border: none !important;
+        color: #ffffff !important;
+        border-radius: 4px;
         font-size: 0.83rem;
         font-weight: 600;
-        padding: 6px 16px;
+        padding: 8px 20px;
     }}
-    [data-testid="stDownloadButton"] button:hover {{
-        background: rgba(56,189,248,0.12) !important;
+    [data-testid="stDownloadButton"] button:hover, [data-testid="stButton"] button:hover {{
+        background: #0043ce !important;
     }}
 
     /* -- metrics -- */
     [data-testid="metric-container"] {{
         background: {SURFACE};
         border: 1px solid {BORDER};
-        border-radius: 8px;
+        border-left: 4px solid {ACCENT};
+        border-radius: 4px;
         padding: 12px 16px !important;
     }}
-    [data-testid="stMetricValue"] {{ color: {TEXT_PRI} !important; font-size: 1.4rem !important; }}
+    [data-testid="stMetricValue"] {{ color: {TEXT_PRI} !important; font-size: 1.4rem !important; font-weight: 700 !important; }}
     [data-testid="stMetricLabel"] {{ color: {TEXT_SEC} !important; font-size: 0.75rem !important; }}
 
     /* -- multiselect -- */
-    [data-baseweb="select"] {{ background: {SURFACE2} !important; border-color: {BORDER} !important; }}
+    [data-baseweb="select"] {{ background: {SURFACE} !important; border-color: {BORDER} !important; }}
 
     /* -- number input -- */
     [data-testid="stNumberInput"] input {{
-        background: {SURFACE2} !important;
+        background: {SURFACE} !important;
         border: 1px solid {BORDER} !important;
         color: {TEXT_PRI} !important;
         border-radius: 4px;
@@ -348,7 +349,7 @@ st.markdown(f"""
     }}
 
     /* -- checkbox -- */
-    [data-testid="stCheckbox"] label {{ color: {TEXT_SEC} !important; }}
+    [data-testid="stCheckbox"] label {{ color: {TEXT_PRI} !important; }}
 
     /* -- dividers -- */
     hr {{ border-color: {BORDER} !important; }}
@@ -376,8 +377,8 @@ st.markdown(f"""
 # -----------------------------------------------------------------------------
 CHART_LAYOUT = dict(
     plot_bgcolor   = SURFACE,
-    paper_bgcolor  = SURFACE,
-    font           = dict(color=TEXT_SEC, family="Inter, Segoe UI, system-ui"),
+    paper_bgcolor  = BG,
+    font           = dict(color=TEXT_SEC, family="IBM Plex Sans, Segoe UI, system-ui"),
     legend         = dict(
         orientation="h", y=-0.22,
         font=dict(size=11, color=TEXT_SEC),
@@ -385,20 +386,20 @@ CHART_LAYOUT = dict(
     ),
     margin         = dict(l=12, r=12, t=44, b=60),
     xaxis          = dict(
-        tickfont   = dict(size=10, color=TEXT_SEC),
-        gridcolor  = BORDER,
+        tickfont      = dict(size=10, color=TEXT_SEC),
+        gridcolor     = BORDER,
         zerolinecolor = BORDER,
-        linecolor  = BORDER,
-        showgrid   = False,
+        linecolor     = BORDER,
+        showgrid      = False,
     ),
     yaxis          = dict(
-        tickfont   = dict(size=10, color=TEXT_SEC),
-        gridcolor  = BORDER,
+        tickfont      = dict(size=10, color=TEXT_SEC),
+        gridcolor     = BORDER,
         zerolinecolor = BORDER,
-        linecolor  = BORDER,
+        linecolor     = BORDER,
     ),
     hoverlabel     = dict(
-        bgcolor    = SURFACE2,
+        bgcolor    = SURFACE,
         bordercolor= BORDER,
         font       = dict(color=TEXT_PRI, size=12),
     ),
@@ -553,8 +554,8 @@ with tab1:
 
     if EDITING_LOCKED:
         st.markdown(
-            f'<div style="background:#2d1a00;border:1px solid {ACCENT2};border-left:4px solid {ACCENT2};'
-            f'border-radius:6px;padding:10px 16px;margin-bottom:12px;font-size:13px;color:{ACCENT2};">'
+            f'<div style="background:#fff2e8;border:1px solid {ACCENT2};border-left:4px solid {ACCENT2};'
+            f'border-radius:6px;padding:10px 16px;margin-bottom:12px;font-size:13px;color:#ba4e00;">'
             f'&#128274; <strong>Forecast table is locked.</strong> '
             f'Editing has been disabled by the administrator. Contact your manager to request changes.'
             f'</div>',
