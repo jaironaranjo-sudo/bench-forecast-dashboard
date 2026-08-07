@@ -38,6 +38,7 @@ CENTER_COLORS = {
     "Quebec":       "#007d79",   # IBM Teal 60
     "East Lansing": "#6929c4",   # IBM Purple 60
 }
+BENCH_ACTUAL_COLOR = "#8d8d8d"
 
 # Q3 comparison series
 C_FORECAST   = "#0f62fe"   # IBM Blue 60
@@ -172,38 +173,62 @@ st.markdown(f"""
 
     /* -- hero header -- */
     .dash-hero {{
-        background: linear-gradient(135deg, {ACCENT} 0%, #0043ce 100%);
+        background: linear-gradient(90deg, #161616 0%, #262626 100%);
+        border: 1px solid #393939;
+        border-left: 4px solid {ACCENT};
         border-radius: 10px;
-        padding: 28px 36px 22px;
+        padding: 20px 28px 18px;
         margin-bottom: 28px;
+    }}
+    .dash-hero-top {{
         display: flex;
         align-items: center;
-        gap: 20px;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
     }}
-    .dash-hero .logo-circle {{
-        width: 52px; height: 52px;
-        background: rgba(255,255,255,0.2);
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.6rem; flex-shrink: 0;
+    .dash-hero-ibm img {{
+        display: block;
+        height: 32px;
+        width: auto;
+    }}
+    .dash-hero .badge {{
+        background: #0f62fe;
+        border: 1px solid #78a9ff;
+        color: #ffffff;
+        border-radius: 20px;
+        padding: 4px 14px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        white-space: nowrap;
     }}
     .dash-hero h1 {{
-        margin: 0 0 4px; font-size: 1.55rem; font-weight: 700;
+        margin: 0 0 6px;
+        font-size: 1.55rem;
+        font-weight: 700;
         color: #ffffff !important;
         letter-spacing: -0.3px;
     }}
     .dash-hero .sub {{
-        font-size: 0.83rem; color: rgba(255,255,255,0.75); margin: 0;
+        font-size: 0.83rem;
+        color: rgba(255,255,255,0.78);
+        margin: 0 0 12px;
     }}
-    .dash-hero .badge {{
-        margin-left: auto;
-        background: rgba(255,255,255,0.2);
-        border: 1px solid rgba(255,255,255,0.4);
-        color: #ffffff;
-        border-radius: 20px;
-        padding: 4px 14px;
-        font-size: 0.78rem; font-weight: 600;
-        white-space: nowrap;
+    .dash-hero-meta {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }}
+    .dash-hero-meta span {{
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.14);
+        color: #f4f4f4;
+        font-size: 0.76rem;
+        font-weight: 500;
     }}
 
     /* -- section titles -- */
@@ -363,12 +388,21 @@ st.markdown(f"""
 # -----------------------------------------------------------------------------
 st.markdown(f"""
 <div class="dash-hero">
-    <div class="logo-circle"></div>
+    <div class="dash-hero-top">
+        <div class="dash-hero-ibm" aria-label="IBM logo">
+            <img src="data:image/png;base64,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k2cOFHbt2+XpLZjfuzYMeXn5+vFF1/U0aNHHZq9lyxZ0qBIamqqSkpKHJ6vXbtWtbW1+uGHHxz6d+zYcdb8mZmZevXVV/Xmm2+qurpaO3fuVHp6un7xi18oJSVFWVlZOndunFasWKH09HQlJia2ujt89NFHuuCCC9Ta2qrKysoGf/Y1NTVavny5du3apQULFjRYv3jxYrW1tbnkESU9+eSTys/PV3l5uW6//XZdc801mjp1qjZv3qynnnpKt912m8aMGaPly5fL09Nz0N8n7e3tev311/X888+3ab8hISENLufk5EiScnNzHf5PkkJCQhQfH99g+e9+9zsNGzZMJSUlioqK0osvvqi2tjYtWrRI3377rSO+ff3115Wfn6+SkhJdc801GhkZUUFBgR555BGH9QcPHixJ2rt3r6qqqvTII49o1qxZmj59ukpKShQfH6+nnnrK4fOwCWaTT5Q8b948XX/99Q3mCRrKhw4d0siRIzV8+PAGi+Li4hQaGqqPP/5YVVVVmjdvnmJiYnTzzTfr4Ycf1rp167R9+/YGp+ji4mJ9+OGHHm/ZY4/RD9g333yjd999Vxs2bNCBAwc0d+5chYaG6s0331R+fr6efvpptba2KigoSFdddZXee+89ffvtt+rdu3ez7/6WW27R7t27deONN7YZbEZHR2vChAl6//33NX/+fF166aX67LPPNGrUKN1zzz167rnn9MUXXygjI0Pvvvuu4uPj9fTTT+v55593ur748eM1evRo3X333brooou0fPlyvf766woMDNSzzz6rG2+8sdl32dDQ0Ob9IiMjJf1fU3x2drZ+85vfaMOGDWpqaqq3P6v5+fn68MMP9fOf/1wrV67UtGnTlJKSoi1btqh///4aGxtz6Ln11lt12WWXKSkpSfPnz9fOnTu1adMm7dmzRz//+c/V2Nio999/X7W1tdq1a5fDklnS4MGD9cQTT2jKlCmaN2+eFi1apOrqao0bN07p6el677339PDDD+u9997T/v37lZ6e7vDeZu7cuXrooYd09913Kzo6WsXFxdq0aZNqamr0+eefKzExUfv27XP4t6qvr9djjz2mGTNmqKioSMePH9cNN9yg1tZWzZ49W9dff7327t2r2bNn68KFC/rHP/7h8P0MDAxo1qxZOnDggLp27arTp0/r0ksv1b59+7RgwQI9+uijmjdvniZOnKhFixaps7NTzz33nMaNG9eu+c6fP6+XX35Z0dHReumll7Rx40atXr1a119/vb744guH7+fx48f197//XXfccYeOHj2q/fv366233lJTU1ODo9zU1KS///3v+vjjjxUWFiZPT09dc8012rx5szIyMhQSEqKXXnrJ4fOwCTomCf5fVNx3330ODw8DJixevNihaLJkyWafJ2mKoojJjz/+eIP7R0VFGfLy8hocz8vLE5Ntv7y9vYWLi4sxmUzGO++8YwQEBBjvvPOOQ/Ps3bvXkJOTY1x22WUNlh04cMDQ1NQkTpw4YQwbNsyQnp7u0H3yySeGUChscL+ioqJmz7Nv3z5DWlraWcvZs2ePISEhwUhISDAWLVpk2NraGsOHDzfce++9DX7f7dixw7j88svPyvO2b9/eqKmpMSorK43CwkLD4/F0+g728/PzRnBwsDFo0CBDQkKCUV9fb1DX1dXlk8Tyd0j8N7Tr3nvvNYKDg83Kjhw5YoiIiGjw+Msvv+ywtbU1fvWrXxnTp083CgoKDG1tbYOPjOzfvt1YsGBBg+P09vYaV155pdHR0WE4OzsbQ4cONf73f//X4bt4+vRpQ0BAgHH06FGjoaHB4fGMGTMcaif5v//7P0N6evqZ6+fPn2+Q1GbNvXbtWqOhoSGfPP3vv/82SCw4ONjYvXu3Q/P4+vo6rL///vvbPC6SvPq2XHHFFQ0u5+fnN/j4iy++2OD+bq3j4YcfNsbGxhwud3d3G/X19ebZZ581HnnkEcPGxsbhvPX19ca3335r8DrX19cbV111lcHOzs7o0qWL8eabbxobNmywd5m+vj5DWlqa8dZbbxmbN282nnvuOUNmZqaRl5dnVFVVOWwPHz7ckJOT47B+4sSJhsPhMI4dO2awt7c3Bg4caGzcuLHJ8Y1hT7d/JGlcwGOllwYAAAAASUVORK5CYII=" alt="IBM logo" />
+        </div>
+        <div class="badge">Q3 2026 Active</div>
+    </div>
     <div>
         <h1>NA Bench Forecast</h1>
-        <p class="sub">North America FNC . Bench planning, historic trends &amp; quarter comparisons</p>
+        <p class="sub">North America FNC workforce planning dashboard with actual bench through Week 6 and quarter-end forecast visibility.</p>
+        <div class="dash-hero-meta">
+            <span>Actuals loaded through Wk 06</span>
+            <span>Forecast view through Wk 13</span>
+            <span>Historic + Q3 comparison included</span>
+        </div>
     </div>
-    <div class="badge">Q3 2026 Active</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -408,9 +442,14 @@ CHART_LAYOUT = dict(
 # -----------------------------------------------------------------------------
 # Styled-table helper
 # -----------------------------------------------------------------------------
-def styled_table(df: pd.DataFrame, total_rows: list[str] | None = None) -> None:
+def styled_table(
+    df: pd.DataFrame,
+    total_rows: list[str] | None = None,
+    grey_columns: list[str] | None = None,
+) -> None:
     """Render a read-only DataFrame with per-center row colours, dark header, centred numbers."""
     total_rows = total_rows or []
+    grey_columns = set(grey_columns or [])
 
     def _row_style(row):
         center = str(row["Center"]) if "Center" in row.index else ""
@@ -422,30 +461,31 @@ def styled_table(df: pd.DataFrame, total_rows: list[str] | None = None) -> None:
             bg, fg = SURFACE, TEXT_PRI
         return [f"background-color:{bg}; color:{fg}"] * len(row)
 
-    # Centre every column except the first (Center name)
     def _col_align(col):
         if col.name == "Center":
             return ["text-align:left; padding-left:12px"] * len(col)
         return ["text-align:center"] * len(col)
 
+    def _grey_columns(col):
+        if col.name in grey_columns:
+            return [f"background-color:{SURFACE2}; color:{TEXT_PRI}"] * len(col)
+        return [""] * len(col)
+
     styler = (
         df.style
         .apply(_row_style, axis=1)
         .apply(_col_align, axis=0)
+        .apply(_grey_columns, axis=0)
         .set_table_styles([
-            # header row - centred, except first th (Center label stays left)
             {"selector": "thead tr th",
              "props": f"background-color:{TBL_HEADER_BG}; color:{TBL_HEADER_FG}; "
-                      f"font-weight:700; font-size:0.78rem; text-transform:uppercase; "
-                      f"letter-spacing:0.05em; border-bottom:2px solid {ACCENT}; "
-                      f"text-align:center; padding:7px 10px;"},
-            # first header cell - left-align the "Center" column header
+                       f"font-weight:700; font-size:0.78rem; text-transform:uppercase; "
+                       f"letter-spacing:0.05em; border-bottom:2px solid {ACCENT}; "
+                       f"text-align:center; padding:7px 10px;"},
             {"selector": "thead tr th:first-child",
              "props": "text-align:left; padding-left:12px;"},
-            # all data cells
             {"selector": "td",
              "props": f"border:1px solid {BORDER}; font-size:0.85rem; padding:6px 10px;"},
-            # table wrapper
             {"selector": "",
              "props": f"border-collapse:collapse; width:100%;"},
         ])
@@ -474,15 +514,23 @@ def load_bench_forecast() -> pd.DataFrame:
 @st.cache_data
 def load_historic() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Historic Bench Data", header=0)
-    raw = raw.iloc[:, :12]
+    raw = raw.iloc[:, :12].copy()
     raw.columns = [
         "Year", "Quarter", "Week",
         "Baton Rouge", "East Lansing", "Monroe", "Buffalo",
         "Halifax", "Quebec", "Calgary", "NA FNC", "Wk",
     ]
     raw = raw[raw["Year"].notna() & raw["Quarter"].notna()].copy()
+    raw["Year"] = pd.to_numeric(raw["Year"], errors="coerce")
+    raw = raw[raw["Year"].notna()].copy()
     raw["Year"] = raw["Year"].astype(int)
+    raw["Quarter"] = raw["Quarter"].astype(str).str.strip()
+    raw["Week"] = raw["Week"].astype(str).str.strip()
+    raw["Wk"] = raw["Wk"].astype(str).str.strip()
+    for col in ["Baton Rouge", "East Lansing", "Monroe", "Buffalo", "Halifax", "Quebec", "Calgary", "NA FNC"]:
+        raw[col] = pd.to_numeric(raw[col], errors="coerce").fillna(0)
     raw["Label"] = raw["Year"].astype(str) + " " + raw["Quarter"] + " " + raw["Week"]
+    raw["QuarterWeek"] = raw["Quarter"] + " " + raw["Week"]
     return raw
 
 
@@ -699,8 +747,8 @@ window.addEventListener('load', recalc);
 """
 
     if EDITING_LOCKED:
-        # Read-only styled table - reuse the existing styled_table helper
-        styled_table(working, total_rows=[])
+        grey_columns = [f"Wk {i:02d}" for i in range(1, 7)]
+        styled_table(working, total_rows=[], grey_columns=grey_columns)
     else:
         table_html = build_editable_table(working)
         # Row height: 40px per center + 44px for grand-total row + 38px header
@@ -869,15 +917,20 @@ with tab2:
 
         # -- Chart ---------------------------------------------------------
         fig_hist = go.Figure()
+        actual_quarter_weeks = {f"3Q WK {i:02d}" for i in range(1, 7)}
 
         for center in sel_centers:
             if center not in df_f.columns:
                 continue
+            marker_colors = [
+                BENCH_ACTUAL_COLOR if row["QuarterWeek"] in actual_quarter_weeks else CENTER_COLORS.get(center, TEXT_SEC)
+                for _, row in df_f.iterrows()
+            ]
             fig_hist.add_trace(go.Bar(
                 name=center,
                 x=x_labels,
                 y=df_f[center].tolist(),
-                marker_color=CENTER_COLORS.get(center, TEXT_SEC),
+                marker_color=marker_colors,
                 marker_line_width=0,
                 hovertemplate=f"<b>{center}</b><br>%{{x}}: %{{y}}<extra></extra>",
             ))
@@ -1094,8 +1147,14 @@ with tab4:
         quarter_label = st.text_input("Quarter",    value="Q3 2026",    key="em_qtr")
         region_label  = st.text_input("Region",     value="NA FNC",     key="em_region")
     with em3:
-        bench_target  = st.number_input("Bench % target (%)", min_value=1.0, max_value=30.0,
-                                         value=8.5, step=0.5, key="em_target")
+        bench_target = 5.0
+        st.markdown(
+            f'<div style="background:{SURFACE};border:1px solid {BORDER};border-radius:8px;padding:10px 12px;margin-top:4px;margin-bottom:10px;">'
+            f'<div style="font-size:0.74rem;color:{TEXT_SEC};text-transform:uppercase;letter-spacing:0.06em;">Bench Target</div>'
+            f'<div style="font-size:1.1rem;font-weight:700;color:{ACCENT};margin-top:2px;">{bench_target:.1f}% (fixed)</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
         tone          = st.selectbox("Tone", ["Professional", "Executive Summary", "Detailed"],
                                      key="em_tone")
 
@@ -1114,116 +1173,99 @@ with tab4:
     w13_color   = _status_color(_w13_pct, bench_target)
     trend_color = GOOD if _trend == "decreasing" else WARN if _trend == "increasing" else ACCENT
 
+    actuals_cutoff_week = 6
+    actual_latest_week = WEEKS[actuals_cutoff_week - 1]
+    actual_total = int(_gt_vals[actuals_cutoff_week - 1])
+    actual_pct = actual_total / _hc * 100
+    post_actual_values = {week: int(_gt_vals[WEEKS.index(week)]) for week in WEEKS[actuals_cutoff_week:]}
+    highest_future_week = max(post_actual_values, key=post_actual_values.get)
+    highest_future_value = post_actual_values[highest_future_week]
+    lowest_future_week = min(post_actual_values, key=post_actual_values.get)
+    lowest_future_value = post_actual_values[lowest_future_week]
+    actual_series = {c: int(_work[_work["Center"] == c][actual_latest_week].values[0])
+                     for c in CENTERS if not _work[_work["Center"] == c].empty}
+    actual_top_center = max(actual_series, key=actual_series.get)
+    actual_top_value = actual_series[actual_top_center]
+    actual_low_center = min(actual_series, key=actual_series.get)
+    actual_low_value = actual_series[actual_low_center]
+    forecast_end_total = int(_gt_vals[-1])
+    forecast_delta = forecast_end_total - actual_total
+    forecast_delta_color = GOOD if forecast_delta < 0 else WARN if forecast_delta > 0 else ACCENT
+    actual_avg_pct = float(pd.Series(_gt_vals[:actuals_cutoff_week]).mean() / _hc * 100)
+
     # Build paragraphs based on tone
     if tone == "Executive Summary":
         p_opening = (
-            f"Please find below the {_hl(quarter_label)} Bench Forecast summary for "
-            f"{_hl(region_label)}. As of {_hl(report_week)}, total bench stands at "
-            f"{_hl(str(_gt_w1), w1_color)} resources, representing "
-            f"{_hl(f'{_w1_pct:.1f}%', w1_color)} of total HC ({_hl(str(_hc))})."
+            f"Please find below the {_hl(quarter_label)} bench update for {_hl(region_label)}. "
+            f"Through {_hl(actual_latest_week)}, actual bench levels increased from {_hl('142 FTEs', w1_color)} ({_hl('6.9%', w1_color)}) to "
+            f"{_hl('180 FTEs', _status_color(actual_pct, bench_target))} ({_hl('8.8%', _status_color(actual_pct, bench_target))}), "
+            f"primarily driven by growth in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}. This places current bench materially above the fixed {_hl('5.0%', ACCENT)} target."
         )
         p_trend = (
-            f"The bench is {_hl(_trend, trend_color)} across the quarter, "
-            f"projecting {_hl(str(_gt_w13), w13_color)} resources ({_hl(f'{_w13_pct:.1f}%', w13_color)}) "
-            f"by {_hl(WEEKS[-1])}. Peak bench is forecasted at {_hl(_peak_wk)} "
-            f"with {_hl(str(_peak_val))} resources."
+            f"Looking ahead, the forecast projects bench levels to remain elevated and increase further to {_hl('218 FTEs', w13_color)} ({_hl('11.1%', w13_color)}) by {_hl('Wk 13')}, "
+            f"peaking at {_hl('222 FTEs', WARN)} ({_hl('11.3%', WARN)}) in {_hl('Wk 11')} and {_hl('Wk 12')}. The most significant forecasted increase occurs in {_hl('Wk 10')}, "
+            f"when bench rises from {_hl('178', ACCENT)} to {_hl('212', WARN)} FTEs, driven mainly by increases in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))} and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}."
         )
         p_centers = (
-            f"{_hl(_top_center, CENTER_COLORS.get(_top_center, ACCENT))} leads with "
-            f"{_hl(str(_top_center_v))} resources on bench in {_hl(report_week)}, "
-            f"while {_hl(_low_center, CENTER_COLORS.get(_low_center, ACCENT))} "
-            f"has the lowest count at {_hl(str(_low_center_v))}."
+            f"Center highlights show {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} improving from {_hl('54')} to {_hl('40')} FTEs through {_hl(actual_latest_week)}, before rebounding to {_hl('49', WARN)} from {_hl('Wk 10')} onward. "
+            f"{_hl('Buffalo', CENTER_COLORS.get('Buffalo', ACCENT))} remains stable between {_hl('3')} and {_hl('5')} FTEs, while {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))} continues to be the largest driver of network bench growth, "
+            f"moving from {_hl('25')} to {_hl('51')} actuals and peaking at {_hl('68', WARN)} in {_hl('Wk 11')}."
         )
         p_yoy = (
-            f"Compared to {_hl('Q3 2025 actuals', C_ACTUAL)}, the current forecast is "
-            f"{_hl(_q3_trend + ' Q3 2025', WARN if _q3_delta > 0 else GOOD)} "
-            f"by {_hl(str(abs(_q3_delta)))} resources at week 1 "
-            f"(Forecast: {_hl(str(_q3_fc_w1), C_FORECAST)} vs "
-            f"Actual: {_hl(str(_q3_ac_w1), C_ACTUAL)})."
+            f"{_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))} and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))} also show sustained growth, increasing from {_hl('11')} to {_hl('25')} and {_hl('24')} to {_hl('33')} by {_hl(actual_latest_week)}, "
+            f"with forecasts reaching {_hl('33')} and {_hl('38')} by {_hl('Wk 13')}. {_hl('Lansing', CENTER_COLORS.get('Lansing', ACCENT))} and {_hl('Monroe', CENTER_COLORS.get('Monroe', ACCENT))} remain broadly stable across the period."
         )
         p_action = (
-            f"Average bench rate of {_hl(f'{_avg_pct:.1f}%', avg_color)} is "
-            + (f"{_hl('above', DANGER)} the {_hl(f'{bench_target:.1f}%')} target - "
-               f"immediate placement actions are recommended."
-               if _avg_pct > bench_target else
-               f"{_hl('within', GOOD)} the {_hl(f'{bench_target:.1f}%')} target range.")
+            f"Overall, the forecast indicates sustained excess capacity through the end of the quarter, with bench percentages remaining {_hl('above 10%', DANGER)} from {_hl('Wk 10')} onward versus a fixed {_hl('5.0%', ACCENT)} target. "
+            f"Key focus areas should remain {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}, "
+            f"which account for the majority of forecasted bench exposure and should remain the primary redeployment and mitigation priorities."
         )
         paragraphs = [p_opening, p_trend, p_centers, p_yoy, p_action]
 
     elif tone == "Detailed":
         p_opening = (
-            f"Team, please find the detailed {_hl(quarter_label)} Bench Forecast report for "
-            f"{_hl(region_label)}. This report covers weeks {_hl(WEEKS[0])} through "
-            f"{_hl(WEEKS[-1])} and includes per-center breakdowns, YoY comparisons, "
-            f"and trend analysis."
+            f"Team, please find the detailed {_hl(quarter_label)} bench update for {_hl(region_label)}. Through {_hl(actual_latest_week)}, actual bench increased from {_hl('142 FTEs', w1_color)} "
+            f"({_hl('6.9%', w1_color)}) in {_hl('Wk 01')} to {_hl('180 FTEs', _status_color(actual_pct, bench_target))} ({_hl('8.8%', _status_color(actual_pct, bench_target))}) in {_hl(actual_latest_week)}, versus a fixed {_hl('5.0%', ACCENT)} target."
         )
         p_snapshot = (
-            f"<b>Current Snapshot ({_hl(report_week)}):</b> Total bench = "
-            f"{_hl(str(_gt_w1), w1_color)} ({_hl(f'{_w1_pct:.1f}%', w1_color)} of "
-            f"{_hl(str(_hc))} HC). Target bench rate: {_hl(f'{bench_target:.1f}%')}. "
-            f"Status: {_hl('ON TARGET' if _w1_pct <= bench_target else 'ABOVE TARGET', GOOD if _w1_pct <= bench_target else DANGER)}."
+            f"<b>Current Snapshot ({_hl(actual_latest_week)}):</b> Bench growth has been concentrated in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}, "
+            f"while {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} improved over the same period from {_hl('54')} to {_hl('40')} FTEs."
         )
         p_trend = (
-            f"<b>Trend:</b> Bench is {_hl(_trend, trend_color)} from "
-            f"{_hl(str(_gt_w1))} in {_hl(WEEKS[0])} to "
-            f"{_hl(str(_gt_w13), w13_color)} in {_hl(WEEKS[-1])} "
-            f"(net change: {_hl(f'{_gt_w13 - _gt_w1:+d}', GOOD if _gt_w13 < _gt_w1 else WARN)}). "
-            f"Peak forecasted at {_hl(_peak_wk)} with {_hl(str(_peak_val))} resources "
-            f"({_hl(f'{_peak_val/_hc*100:.1f}%', _status_color(_peak_val/_hc*100, bench_target))})."
+            f"<b>Actual-to-Forecast View:</b> The forecast remains elevated after {_hl(actual_latest_week)}, ending at {_hl('218 FTEs', w13_color)} ({_hl('11.1%', w13_color)}) in {_hl('Wk 13')} and peaking at {_hl('222 FTEs', WARN)} ({_hl('11.3%', WARN)}) in {_hl('Wk 11')} and {_hl('Wk 12')}. "
+            f"The most significant jump occurs in {_hl('Wk 10')}, when total bench rises from {_hl('178')} to {_hl('212', WARN)} FTEs, driven primarily by {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))} and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}."
         )
-        _center_lines = " | ".join(
-            f"{_hl(c, CENTER_COLORS.get(c, ACCENT))}: {_hl(str(_w1_series.get(c, 0)))}"
-            for c in CENTERS
+        p_centers = (
+            f"<b>Center Highlights:</b> Baton Rouge improves to {_hl('40')} by {_hl(actual_latest_week)} before rebounding to {_hl('49', WARN)} from {_hl('Wk 10')} onward; Buffalo stays in a narrow {_hl('3-5')} range; Calgary rises from {_hl('11')} to {_hl('25')} actuals and reaches {_hl('33')} by {_hl('Wk 13')}; "
+            f"Halifax climbs from {_hl('25')} to {_hl('51')} by {_hl(actual_latest_week)} and peaks at {_hl('68', WARN)}; Lansing remains in the {_hl('16-18')} range; Monroe stays broadly flat between {_hl('10')} and {_hl('14')}; Quebec grows steadily from {_hl('24')} to {_hl('33')} and is projected to reach {_hl('38')} by {_hl('Wk 13')}."
         )
-        p_centers = f"<b>Per-Center ({_hl(WEEKS[0])}):</b> {_center_lines}."
         p_yoy = (
-            f"<b>YoY Comparison:</b> Q3 2026 forecast ({_hl(str(_q3_fc_pk), C_FORECAST)} peak) vs "
-            f"Q3 2025 actual ({_hl(str(_q3_ac_trg), C_ACTUAL)} trough). "
-            f"Week 1 delta: {_hl(f'{_q3_delta:+d}', GOOD if _q3_delta < 0 else WARN)} resources. "
-            f"Historic latest reading ({_hl(_hist_lbl)}): {_hl(str(_hist_fnc))} NA FNC total."
+            f"<b>Capacity Outlook:</b> Bench percentages remain above {_hl('10%', DANGER)} from {_hl('Wk 10')} onward, well above the fixed {_hl('5.0%', ACCENT)} target and indicating sustained excess capacity through the end of the period. "
+            f"This reinforces the need to prioritize redeployment actions in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}."
         )
         p_action = (
-            f"<b>Recommended Actions:</b> "
-            + (f"With bench at {_hl(f'{_avg_pct:.1f}%', avg_color)} avg, "
-               f"prioritise placement of {_hl(_top_center, CENTER_COLORS.get(_top_center, ACCENT))} "
-               f"resources ({_hl(str(_top_center_v))} on bench). "
-               f"Monitor {_hl(_peak_wk)} closely as the projected peak period."
-               if _avg_pct > bench_target else
-               f"Bench rate is healthy. Continue monitoring {_hl(_top_center, CENTER_COLORS.get(_top_center, ACCENT))} "
-               f"as the highest-volume center ({_hl(str(_top_center_v))}) and track trajectory to {_hl(WEEKS[-1])}.")
+            f"<b>Recommended Actions:</b> Continue active mitigation on the largest forecast contributors, with primary focus on {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}. "
+            f"Secondary monitoring should remain on {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}, which continues to trend upward through quarter-end."
         )
         paragraphs = [p_opening, p_snapshot, p_trend, p_centers, p_yoy, p_action]
 
     else:  # Professional (default)
         p_opening = (
-            f"Please find the {_hl(quarter_label)} Bench Forecast update for "
-            f"{_hl(region_label)}. Current bench as of {_hl(report_week)}: "
-            f"{_hl(str(_gt_w1), w1_color)} resources "
-            f"({_hl(f'{_w1_pct:.1f}%', w1_color)} bench rate)."
+            f"Please find the {_hl(quarter_label)} bench update for {_hl(region_label)}. Through {_hl(actual_latest_week)}, actual bench increased from {_hl('142 FTEs', w1_color)} ({_hl('6.9%', w1_color)}) to "
+            f"{_hl('180 FTEs', _status_color(actual_pct, bench_target))} ({_hl('8.8%', _status_color(actual_pct, bench_target))}), against a fixed {_hl('5.0%', ACCENT)} target."
         )
         p_trend = (
-            f"The forecast shows a {_hl(_trend, trend_color)} trend through {_hl(WEEKS[-1])}, "
-            f"with a projected peak of {_hl(str(_peak_val))} in {_hl(_peak_wk)}. "
-            f"End-of-quarter bench is projected at {_hl(str(_gt_w13), w13_color)} "
-            f"({_hl(f'{_w13_pct:.1f}%', w13_color)})."
+            f"The forecast remains elevated for the balance of the quarter, reaching {_hl('218 FTEs', w13_color)} ({_hl('11.1%', w13_color)}) by {_hl('Wk 13')} and peaking at {_hl('222 FTEs', WARN)} ({_hl('11.3%', WARN)}) in {_hl('Wk 11')} and {_hl('Wk 12')}. "
+            f"The sharpest step-up occurs in {_hl('Wk 10')}, when bench increases from {_hl('178')} to {_hl('212', WARN)} FTEs."
         )
         p_centers = (
-            f"{_hl(_top_center, CENTER_COLORS.get(_top_center, ACCENT))} continues to carry "
-            f"the highest bench volume this week at {_hl(str(_top_center_v))} resources. "
-            f"{_hl(_low_center, CENTER_COLORS.get(_low_center, ACCENT))} remains the "
-            f"lowest at {_hl(str(_low_center_v))}."
+            f"The main drivers of growth continue to be {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}, while {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} improves through {_hl(actual_latest_week)} but rebounds in forecast from {_hl('Wk 10')} onward."
         )
         p_yoy = (
-            f"Versus Q3 2025, the current forecast is {_hl(_q3_trend + ' last year', WARN if _q3_delta > 0 else GOOD)} "
-            f"by {_hl(str(abs(_q3_delta)))} heads at week 1 "
-            f"({_hl(str(_q3_fc_w1), C_FORECAST)} forecast vs {_hl(str(_q3_ac_w1), C_ACTUAL)} actual)."
+            f"Bench exposure is expected to remain {_hl('above 10%', DANGER)} from {_hl('Wk 10')} onward, materially above the fixed {_hl('5.0%', ACCENT)} target and indicative of sustained excess capacity through quarter-end."
         )
         p_action = (
-            f"Average bench rate of {_hl(f'{_avg_pct:.1f}%', avg_color)} "
-            + (f"exceeds the {_hl(f'{bench_target:.1f}%')} target. "
-               f"Placement focus is recommended for {_hl(_top_center, CENTER_COLORS.get(_top_center, ACCENT))}."
-               if _avg_pct > bench_target else
-               f"is within the {_hl(f'{bench_target:.1f}%')} target. No immediate action required.")
+            f"Focus should remain on {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} as the primary mitigation priorities."
         )
         paragraphs = [p_opening, p_trend, p_centers, p_yoy, p_action]
 
@@ -1239,27 +1281,46 @@ with tab4:
 
     yoy_pill_color = '#f87171' if _q3_delta > 0 else '#34d399'
 
-    def _center_row(c: str) -> str:
-        bg, fg   = CENTER_ROW_COLORS.get(c, (SURFACE, TEXT_PRI))
-        row_src  = _work[_work["Center"] == c]
-        v1       = int(row_src[WEEKS[0]].values[0])  if not row_src.empty else 0
-        v13      = int(row_src[WEEKS[-1]].values[0]) if not row_src.empty else 0
-        if v13 < v1:
-            trend_html = '<span style="color:#34d399">&#9660; Down</span>'
-        elif v13 > v1:
-            trend_html = '<span style="color:#fb923c">&#9650; Up</span>'
-        else:
-            trend_html = '<span style="color:#8b949e">&#8212; Flat</span>'
-        return (
+    def _build_snapshot_rows(
+        row_bg_border: str,
+        row_total_bg: str,
+        row_total_fg: str,
+    ) -> tuple[str, str]:
+        snapshot_totals = {week: 0 for week in WEEKS}
+        snapshot_rows_html = ""
+        for c in CENTERS:
+            bg, fg = CENTER_ROW_COLORS.get(c, (row_bg_border, TEXT_PRI))
+            row_src = _work[_work["Center"] == c]
+            week_values = [int(row_src[week].values[0]) if not row_src.empty else 0 for week in WEEKS]
+            for week, value in zip(WEEKS, week_values):
+                snapshot_totals[week] += value
+            week_cells = "".join(
+                f'<td style="text-align:center;padding:5px 10px;border:1px solid {row_bg_border};background:{bg};color:{fg}">{value}</td>'
+                for value in week_values
+            )
+            snapshot_rows_html += (
+                f'<tr>'
+                f'<td style="padding:5px 10px;border:1px solid {row_bg_border};background:{bg};color:{fg};font-weight:600">{c}</td>'
+                f'{week_cells}'
+                f'</tr>'
+            )
+        total_cells = "".join(
+            f'<td style="text-align:center;padding:5px 10px;border:1px solid {row_bg_border};background:{row_total_bg};color:{row_total_fg};font-weight:700">{snapshot_totals[week]}</td>'
+            for week in WEEKS
+        )
+        snapshot_rows_html += (
             f'<tr>'
-            f'<td style="padding:5px 10px;border:1px solid {BORDER};background:{bg};color:{fg};font-weight:600">{c}</td>'
-            f'<td style="text-align:center;padding:5px 10px;border:1px solid {BORDER};background:{bg};color:{fg}">{v1}</td>'
-            f'<td style="text-align:center;padding:5px 10px;border:1px solid {BORDER};background:{bg};color:{fg}">{v13}</td>'
-            f'<td style="text-align:center;padding:5px 10px;border:1px solid {BORDER};background:{bg}">{trend_html}</td>'
+            f'<td style="padding:5px 10px;border:1px solid {row_bg_border};background:{row_total_bg};color:{row_total_fg};font-weight:700">Grand Total</td>'
+            f'{total_cells}'
             f'</tr>'
         )
+        snapshot_header_html = "".join(
+            f'<th style="text-align:center;padding:5px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {row_bg_border};">{week}</th>'
+            for week in WEEKS
+        )
+        return snapshot_rows_html, snapshot_header_html
 
-    center_rows_html = "".join(_center_row(c) for c in CENTERS)
+    center_rows_html, center_snapshot_header_html = _build_snapshot_rows(BORDER, TBL_TOTAL_BG, TBL_TOTAL_FG)
 
     email_html = (
         f'<div style="background:{SURFACE};border:1px solid {BORDER};border-radius:10px;'
@@ -1296,16 +1357,15 @@ with tab4:
         # Center snapshot table
         f'<div style="margin-top:20px;border-top:1px solid {BORDER};padding-top:16px;">'
         f'<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;'
-        f'color:{TEXT_SEC};margin-bottom:10px;font-weight:700">Center Snapshot &#8212; {report_week}</div>'
-        f'<table style="border-collapse:collapse;width:100%;font-size:0.82rem;">'
+        f'color:{TEXT_SEC};margin-bottom:10px;font-weight:700">Center Snapshot &#8212; Full Quarter View</div>'
+        f'<div style="overflow-x:auto;">'
+        f'<table style="border-collapse:collapse;width:100%;font-size:0.82rem;min-width:980px;">'
         f'<thead><tr>'
         f'<th style="text-align:left;padding:5px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER};">Center</th>'
-        f'<th style="text-align:center;padding:5px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER};">Bench (Wk 01)</th>'
-        f'<th style="text-align:center;padding:5px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER};">Bench (Wk 13)</th>'
-        f'<th style="text-align:center;padding:5px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER};">Trend</th>'
+        f'{center_snapshot_header_html}'
         f'</tr></thead>'
         f'<tbody>{center_rows_html}</tbody>'
-        f'</table></div>'
+        f'</table></div></div>'
 
         # Footer
         f'<div style="margin-top:24px;border-top:1px solid {BORDER};padding-top:12px;'
@@ -1351,11 +1411,16 @@ with tab4:
                      f'font-size="9" fill="#8b949e" font-family="{FONT}">{lbl}</text>')
         return xf, yf, grid
 
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import matplotlib.ticker as mticker
     import io, base64
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import matplotlib.ticker as mticker
+        HAS_MATPLOTLIB = True
+    except ModuleNotFoundError:
+        HAS_MATPLOTLIB = False
 
     # Outlook-safe chart colors — light background so charts are visible in email
     _CH_BG     = "#ffffff"   # figure background
@@ -1405,35 +1470,39 @@ with tab4:
     }
     q3_wk_labels = list(_q3.index) if not _q3.empty else WEEKS
 
-    fig1, ax1 = plt.subplots(figsize=(12, 3.5), facecolor=_CH_BG)
-    ax1.set_facecolor(_CH_PLOT)
-    for name, vals in q3_series.items():
-        if not vals:
-            continue
-        col = _Q3_COLORS[name]
-        ls  = "--" if name == "Q3 Orig Forecast" else "-"
-        ax1.plot(q3_wk_labels, vals, color=col, linewidth=2.2, linestyle=ls,
-                 marker="o", markersize=5, label=name)
-        for i, v in enumerate(vals):
-            ax1.annotate(str(int(v)), (q3_wk_labels[i], v),
-                         textcoords="offset points", xytext=(0, 7),
-                         ha="center", fontsize=7, color=col, fontweight="bold")
-    ax1.set_xticks(range(len(q3_wk_labels)))
-    ax1.set_xticklabels(q3_wk_labels, rotation=45, ha="right",
-                        fontsize=7.5, color=_CH_TICK)
-    ax1.tick_params(axis="y", labelsize=7.5, labelcolor=_CH_TICK)
-    ax1.yaxis.set_major_locator(mticker.MaxNLocator(5, integer=True))
-    for spine in ax1.spines.values():
-        spine.set_edgecolor(_CH_SPINE)
-    ax1.tick_params(colors=_CH_SPINE)
-    ax1.grid(axis="y", color=_CH_GRID, linewidth=0.6)
-    ax1.set_title("Q3 Comparison - Forecast vs Actuals", fontsize=9,
-                  color=_CH_TICK, pad=6)
-    ax1.legend(fontsize=7.5, facecolor=_CH_LEG_BG, edgecolor=_CH_SPINE,
-               loc="upper right")
-    fig1.tight_layout(pad=0.6)
-    _q3_png       = _fig_to_png_bytes(fig1)
-    q3_chart_svg  = _png_to_b64_tag(_q3_png)   # dashboard preview (browser)
+    if HAS_MATPLOTLIB:
+        fig1, ax1 = plt.subplots(figsize=(12, 3.5), facecolor=_CH_BG)
+        ax1.set_facecolor(_CH_PLOT)
+        for name, vals in q3_series.items():
+            if not vals:
+                continue
+            col = _Q3_COLORS[name]
+            ls  = "--" if name == "Q3 Orig Forecast" else "-"
+            ax1.plot(q3_wk_labels, vals, color=col, linewidth=2.2, linestyle=ls,
+                     marker="o", markersize=5, label=name)
+            for i, v in enumerate(vals):
+                ax1.annotate(str(int(v)), (q3_wk_labels[i], v),
+                             textcoords="offset points", xytext=(0, 7),
+                             ha="center", fontsize=7, color=col, fontweight="bold")
+        ax1.set_xticks(range(len(q3_wk_labels)))
+        ax1.set_xticklabels(q3_wk_labels, rotation=45, ha="right",
+                            fontsize=7.5, color=_CH_TICK)
+        ax1.tick_params(axis="y", labelsize=7.5, labelcolor=_CH_TICK)
+        ax1.yaxis.set_major_locator(mticker.MaxNLocator(5, integer=True))
+        for spine in ax1.spines.values():
+            spine.set_edgecolor(_CH_SPINE)
+        ax1.tick_params(colors=_CH_SPINE)
+        ax1.grid(axis="y", color=_CH_GRID, linewidth=0.6)
+        ax1.set_title("Q3 Comparison - Forecast vs Actuals", fontsize=9,
+                      color=_CH_TICK, pad=6)
+        ax1.legend(fontsize=7.5, facecolor=_CH_LEG_BG, edgecolor=_CH_SPINE,
+                   loc="upper right")
+        fig1.tight_layout(pad=0.6)
+        _q3_png       = _fig_to_png_bytes(fig1)
+        q3_chart_svg  = _png_to_b64_tag(_q3_png)
+    else:
+        _q3_png = None
+        q3_chart_svg = f'<p style="color:{TEXT_SEC};font-size:12px;padding:12px">Matplotlib is not installed, so the email preview chart is unavailable.</p>'
 
     # -- Chart 2: Historic Bench - stacked by center + NA FNC amber line ---
     _hist_data   = load_historic()
@@ -1441,7 +1510,7 @@ with tab4:
     _hb_centers  = [c for c in _hb_centers if c in _hist_data.columns]
 
     # -- Chart 2: Historic Bench - stacked bars + amber line (matplotlib PNG)
-    if not _hist_data.empty and _hb_centers:
+    if HAS_MATPLOTLIB and not _hist_data.empty and _hb_centers:
         _hb_df    = _hist_data.sort_values(["Year", "Quarter", "Week"]).copy()
         hb_labels = _hb_df["Label"].tolist()
         hb_totals = _hb_df["NA FNC"].tolist()
@@ -1451,7 +1520,6 @@ with tab4:
         fig2, ax2 = plt.subplots(figsize=(12, 4.0), facecolor=_CH_BG)
         ax2.set_facecolor(_CH_PLOT)
 
-        # Stacked bars per center
         bottoms = [0.0] * n_hb
         for center in _hb_centers:
             vals = [float(_hb_df.iloc[i][center] or 0) for i in range(n_hb)]
@@ -1460,7 +1528,6 @@ with tab4:
                     width=0.78, label=center)
             bottoms = [bottoms[i] + vals[i] for i in range(n_hb)]
 
-        # Quarter boundary dotted lines
         prev_q = None
         for i, row in enumerate(_hb_df.itertuples()):
             cur_q = (row.Year, row.Quarter)
@@ -1469,7 +1536,6 @@ with tab4:
                             linestyle="--")
             prev_q = cur_q
 
-        # Amber NA FNC total line — use darker orange for light bg
         _hb_line_col = "#d97706"
         ax2.plot(x_pos, hb_totals, color=_hb_line_col, linewidth=2.2,
                  marker="o", markersize=4, label="NA FNC Total", zorder=5)
@@ -1480,7 +1546,6 @@ with tab4:
                              ha="center", fontsize=6.5, color=_hb_line_col,
                              fontweight="bold")
 
-        # Axis styling
         tick_step = max(1, n_hb // 16)
         ax2.set_xticks(x_pos[::tick_step])
         ax2.set_xticklabels(hb_labels[::tick_step], rotation=45, ha="right",
@@ -1496,7 +1561,10 @@ with tab4:
                    loc="upper left", ncol=4, framealpha=0.95)
         fig2.tight_layout(pad=0.6)
         _hb_png        = _fig_to_png_bytes(fig2)
-        hist_bench_svg = _png_to_b64_tag(_hb_png)   # dashboard preview (browser)
+        hist_bench_svg = _png_to_b64_tag(_hb_png)
+    elif not _hist_data.empty and _hb_centers:
+        _hb_png        = None
+        hist_bench_svg = f'<p style="color:{TEXT_SEC};font-size:12px;padding:12px">Matplotlib is not installed, so the email preview chart is unavailable.</p>'
     else:
         _hb_png        = None
         hist_bench_svg = f'<p style="color:{TEXT_SEC};font-size:12px;padding:12px">No historic data available.</p>'
@@ -1531,23 +1599,7 @@ with tab4:
     )
 
     # -- Center snapshot table rows ----------------------------------------
-    snap_rows = ""
-    for c in CENTERS:
-        bg, fg = CENTER_ROW_COLORS.get(c, (EM_SURF, EM_TEXT))
-        row_s  = _work[_work["Center"] == c]
-        v1     = int(row_s[WEEKS[0]].values[0])  if not row_s.empty else 0
-        v13    = int(row_s[WEEKS[-1]].values[0]) if not row_s.empty else 0
-        arrow  = '&#9650; Up'   if v13 > v1 else ('&#9660; Down' if v13 < v1 else '&#8212; Flat')
-        ac     = EM_GOOD if v13 < v1 else (EM_WARN if v13 > v1 else EM_MUTED)
-        snap_rows += (
-            f'<tr>'
-            f'<td style="padding:6px 10px;background:{bg};color:{fg};font-weight:600;border:1px solid {EM_BORDER}">{c}</td>'
-            f'<td style="padding:6px 10px;text-align:center;background:{bg};color:{fg};border:1px solid {EM_BORDER}">{v1}</td>'
-            f'<td style="padding:6px 10px;text-align:center;background:{bg};color:{fg};border:1px solid {EM_BORDER}">{v13}</td>'
-            f'<td style="padding:6px 10px;text-align:center;background:{bg};border:1px solid {EM_BORDER}">'
-            f'<span style="color:{ac};font-weight:600">{arrow}</span></td>'
-            f'</tr>'
-        )
+    snap_rows, snap_header_html = _build_snapshot_rows(EM_BORDER, TBL_TOTAL_BG, TBL_TOTAL_FG)
 
     # -- Assemble the full HTML email --------------------------------------
     para_blocks = "".join(
@@ -1601,9 +1653,9 @@ with tab4:
 
         # Header - blue gradient banner
         f'<div style="background:linear-gradient(135deg,{EM_ACCENT} 0%,#0043ce 100%);padding:24px 28px 18px">'
-        f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.7);margin-bottom:6px">{region_label} Workforce Communication</div>'
+        f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#ffffff;margin-bottom:6px">{region_label} Workforce Communication</div>'
         f'<div style="font-size:20px;font-weight:700;color:#ffffff">{quarter_label} Bench Forecast Update &#8212; {report_week}</div>'
-        f'<div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px">From: {sender_name} &nbsp;&middot;&nbsp; Auto-generated from Dashboard</div>'
+        f'<div style="font-size:12px;color:#ffffff;margin-top:4px">From: {sender_name} &nbsp;&middot;&nbsp; Auto-generated from Dashboard</div>'
         f'</div>'
 
         # KPI pills
@@ -1630,13 +1682,13 @@ with tab4:
         + _section(
             "Center Snapshot",
             (
-                f'<table style="border-collapse:collapse;width:100%;font-size:13px">'
+                f'<div style="overflow-x:auto;">'
+                f'<table style="border-collapse:collapse;width:100%;font-size:13px;min-width:980px">'
                 f'<thead><tr>'
                 f'<th {th_left}>Center</th>'
-                f'<th {th_style}>Bench Wk01</th>'
-                f'<th {th_style}>Bench Wk13</th>'
-                f'<th {th_style}>Trend</th>'
+                f'{snap_header_html}'
                 f'</tr></thead><tbody>{snap_rows}</tbody></table>'
+                f'</div>'
             ),
             open_by_default=True,
         )
@@ -1676,7 +1728,9 @@ with tab4:
     import email.mime.image
 
     # Build a version of the HTML where base64 data-URIs are replaced with cid: refs
-    eml_html = full_html.replace(q3_chart_svg,  _png_to_cid_tag("chart_q3.png"))
+    eml_html = full_html
+    if _q3_png:
+        eml_html = eml_html.replace(q3_chart_svg, _png_to_cid_tag("chart_q3.png"))
     if _hb_png:
         eml_html = eml_html.replace(hist_bench_svg, _png_to_cid_tag("chart_hist.png"))
 
@@ -1691,10 +1745,11 @@ with tab4:
     msg_related.attach(email.mime.text.MIMEText(eml_html, "html", "utf-8"))
 
     # Attach Q3 chart PNG as inline CID image
-    img_part1 = email.mime.image.MIMEImage(_q3_png, _subtype="png")
-    img_part1.add_header("Content-ID", "<chart_q3.png>")
-    img_part1.add_header("Content-Disposition", "inline", filename="chart_q3.png")
-    msg_related.attach(img_part1)
+    if _q3_png:
+        img_part1 = email.mime.image.MIMEImage(_q3_png, _subtype="png")
+        img_part1.add_header("Content-ID", "<chart_q3.png>")
+        img_part1.add_header("Content-Disposition", "inline", filename="chart_q3.png")
+        msg_related.attach(img_part1)
 
     # Attach historic bench chart PNG as inline CID image
     if _hb_png:
