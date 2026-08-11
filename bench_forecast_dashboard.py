@@ -6,6 +6,7 @@ Streamlit dashboard replicating three Excel sheets:
   3. Q3 2025 tab - Q3 26 Forecast vs Q3 25 Bench vs Q3 Original Forecast line chart
 """
 
+import base64
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -66,8 +67,17 @@ TBL_TOTAL_FG    = "#ffffff"
 # Config
 # -----------------------------------------------------------------------------
 XLSX_PATH = Path(__file__).parent / "NA Bench Forecast.xlsx"
+LOGO_PATH = Path(__file__).resolve().parent.parent / "IBM LOGO.png"
 CENTERS   = ["Baton Rouge", "Buffalo", "Calgary", "Halifax", "Lansing", "Monroe", "Quebec"]
 WEEKS     = [f"Wk {i:02d}" for i in range(1, 14)]
+
+
+def _load_logo_data_uri() -> str:
+    logo_bytes = LOGO_PATH.read_bytes()
+    return f"data:image/png;base64,{base64.b64encode(logo_bytes).decode()}"
+
+
+IBM_LOGO_DATA_URI = _load_logo_data_uri()
 
 st.set_page_config(
     page_title="NA Bench Forecast",
@@ -189,7 +199,7 @@ st.markdown(f"""
     }}
     .dash-hero-ibm img {{
         display: block;
-        height: 32px;
+        height: 64px;
         width: auto;
     }}
     .dash-hero .badge {{
@@ -390,7 +400,7 @@ st.markdown(f"""
 <div class="dash-hero">
     <div class="dash-hero-top">
         <div class="dash-hero-ibm" aria-label="IBM logo">
-            <img src="data:image/png;base64,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k2cOFHbt2+XpLZjfuzYMeXn5+vFF1/U0aNHHZq9lyxZ0qBIamqqSkpKHJ6vXbtWtbW1+uGHHxz6d+zYcdb8mZmZevXVV/Xmm2+qurpaO3fuVHp6un7xi18oJSVFWVlZOndunFasWKH09HQlJia2ujt89NFHuuCCC9Ta2qrKysoGf/Y1NTVavny5du3apQULFjRYv3jxYrW1tbnkESU9+eSTys/PV3l5uW6//XZdc801mjp1qjZv3qynnnpKt912m8aMGaPly5fL09Nz0N8n7e3tev311/X888+3ab8hISENLufk5EiScnNzHf5PkkJCQhQfH99g+e9+9zsNGzZMJSUlioqK0osvvqi2tjYtWrRI3377rSO+ff3115Wfn6+SkhJdc801GhkZUUFBgR555BGH9QcPHixJ2rt3r6qqqvTII49o1qxZmj59ukpKShQfH6+nnnrK4fOwCWaTT5Q8b948XX/99Q3mCRrKhw4d0siRIzV8+PAGi+Li4hQaGqqPP/5YVVVVmjdvnmJiYnTzzTfr4Ycf1rp167R9+/YGp+ji4mJ9+OGHHm/ZY4/RD9g333yjd999Vxs2bNCBAwc0d+5chYaG6s0331R+fr6efvpptba2KigoSFdddZXee+89ffvtt+rdu3ez7/6WW27R7t27deONN7YZbEZHR2vChAl6//33NX/+fF166aX67LPPNGrUKN1zzz167rnn9MUXXygjI0Pvvvuu4uPj9fTTT+v55593ur748eM1evRo3X333brooou0fPlyvf766woMDNSzzz6rG2+8sdl32dDQ0Ob9IiMjJf1fU3x2drZ+85vfaMOGDWpqaqq3P6v5+fn68MMP9fOf/1wrV67UtGnTlJKSoi1btqh///4aGxtz6Ln11lt12WWXKSkpSfPnz9fOnTu1adMm7dmzRz//+c/V2Nio999/X7W1tdq1a5fDklnS4MGD9cQTT2jKlCmaN2+eFi1apOrqao0bN07p6el677339PDDD+u9997T/v37lZ6e7vDeZu7cuXrooYd09913Kzo6WsXFxdq0aZNqamr0+eefKzExUfv27XP4t6qvr9djjz2mGTNmqKioSMePH9cNN9yg1tZWzZ49W9dff7327t2r2bNn68KFC/rHP/7h8P0MDAxo1qxZOnDggLp27arTp0/r0ksv1b59+7RgwQI9+uijmjdvniZOnKhFixaps7NTzz33nMaNG9eu+c6fP6+XX35Z0dHReumll7Rx40atXr1a119/vb744guH7+fx48f197//XXfccYeOHj2q/fv366233lJTU1ODo9zU1KS///3v+vjjjxUWFiZPT09dc8012rx5szIyMhQSEqKXXnrJ4fOwCTomCf5fVNx3330ODw8DJixevNihaLJkyWafJ2mKoojJjz/+eIP7R0VFGfLy8hocz8vLE5Ntv7y9vYWLi4sxmUzGO++8YwQEBBjvvPOOQ/Ps3bvXkJOTY1x22WUNlh04cMDQ1NQkTpw4YQwbNsyQnp7u0H3yySeGUChscL+ioqJmz7Nv3z5DWlraWcvZs2ePISEhwUhISDAWLVpk2NraGsOHDzfce++9DX7f7dixw7j88svPyvO2b9/eqKmpMSorK43CwkLD4/F0+g728/PzRnBwsDFo0CBDQkKCUV9fb1DX1dXlk8Tyd0j8N7Tr3nvvNYKDg83Kjhw5YoiIiGjw+Msvv+ywtbU1fvWrXxnTp083CgoKDG1tbYOPjOzfvt1YsGBBg+P09vYaV155pdHR0WE4OzsbQ4cONf73f//X4bt4+vRpQ0BAgHH06FGjoaHB4fGMGTMcaif5v//7P0N6evqZ6+fPn2+Q1GbNvXbtWqOhoSGfPP3vv/82SCw4ONjYvXu3Q/P4+vo6rL///vvbPC6SvPq2XHHFFQ0u5+fnN/j4iy++2OD+bq3j4YcfNsbGxhwud3d3G/X19ebZZ581HnnkEcPGxsbhvPX19ca3335r8DrX19cbV111lcHOzs7o0qWL8eabbxobNmywd5m+vj5DWlqa8dZbbxmbN282nnvuOUNmZqaRl5dnVFVVOWwPHz7ckJOT47B+4sSJhsPhMI4dO2awt7c3Bg4caGzcuLHJ8Y1hT7d/JGlcwGOllwYAAAAASUVORK5CYII=" alt="IBM logo" />
+            <img src="{IBM_LOGO_DATA_URI}" alt="IBM logo" />
         </div>
         <div class="badge">Q3 2026 Active</div>
     </div>
