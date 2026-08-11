@@ -67,13 +67,14 @@ TBL_TOTAL_FG    = "#ffffff"
 # Config
 # -----------------------------------------------------------------------------
 XLSX_PATH = Path(__file__).parent / "NA Bench Forecast.xlsx"
-LOGO_PATH = Path(__file__).resolve().parent.parent / "IBM LOGO.png"
 CENTERS   = ["Baton Rouge", "Buffalo", "Calgary", "Halifax", "Lansing", "Monroe", "Quebec"]
 WEEKS     = [f"Wk {i:02d}" for i in range(1, 14)]
 
 
 def _load_logo_data_uri() -> str:
-    logo_bytes = LOGO_PATH.read_bytes()
+    logo_bytes = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAABJAAAAIICAYAAAAxNRQ9AAAMT2lDQ1BJQ0MgUHJvZmlsZQAASImVVwdY"
+    )
     return f"data:image/png;base64,{base64.b64encode(logo_bytes).decode()}"
 
 
