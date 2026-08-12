@@ -695,27 +695,27 @@ def build_colored_table(df: pd.DataFrame, editable: bool = True) -> str:
         )
         cells = center_td
         for w in WEEKS:
-            val   = int(row[w])
+            val    = int(row[w])
             is_act = w in actual_weeks
-            overlay = ACT_CELL_ALPHA if is_act else FC_CELL_ALPHA
-            cell_bg = f"background:{bg};"
-            # Slightly mute text for actuals to reinforce read-only feel
-            cell_fg = f"color:{fg};opacity:{0.72 if is_act else 1.0};"
+            # Actual weeks: solid gray background regardless of center color
+            # Forecast weeks: keep the center's row color
+            if is_act:
+                cell_style = f"background:#e0e0e0;color:#525252;"
+            else:
+                cell_style = f"background:{bg};color:{fg};"
             cid = f"{center.replace(' ', '_')}_{w.replace(' ', '_')}"
             if editable:
                 cells += (
-                    f'<td style="{cell_bg}{cell_fg}padding:5px 3px;'
-                    f'border:1px solid {BORDER};text-align:center;position:relative;">'
-                    f'<div style="position:absolute;inset:0;background:{overlay};pointer-events:none;"></div>'
+                    f'<td style="{cell_style}padding:5px 3px;'
+                    f'border:1px solid {BORDER};text-align:center;">'
                     f'<input id="{cid}" name="{cid}" type="number" min="0" max="9999" value="{val}" '
                     f'style="{inp_base}" oninput="recalc()" />'
                     f'</td>'
                 )
             else:
                 cells += (
-                    f'<td style="{cell_bg}{cell_fg}padding:5px 8px;'
-                    f'border:1px solid {BORDER};text-align:center;position:relative;">'
-                    f'<div style="position:absolute;inset:0;background:{overlay};pointer-events:none;"></div>'
+                    f'<td style="{cell_style}padding:5px 8px;'
+                    f'border:1px solid {BORDER};text-align:center;">'
                     f'{val}</td>'
                 )
         rows_html += f"<tr>{cells}</tr>\n"
