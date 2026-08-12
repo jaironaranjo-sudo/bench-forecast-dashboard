@@ -160,7 +160,12 @@ if _required_pw:
 # Remove or set to false to re-enable editing.
 # -----------------------------------------------------------------------------
 try:
-    EDITING_LOCKED = bool(st.secrets["lock"]["editing"])
+    _lock_val = st.secrets["lock"]["editing"]
+    # Handle both native TOML boolean (True) and string "true"/"false"
+    if isinstance(_lock_val, bool):
+        EDITING_LOCKED = _lock_val
+    else:
+        EDITING_LOCKED = str(_lock_val).strip().lower() == "true"
 except Exception:
     EDITING_LOCKED = False
 
