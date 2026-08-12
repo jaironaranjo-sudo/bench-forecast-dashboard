@@ -919,7 +919,7 @@ with tab1:
     grand_total.insert(0, "Center", "Grand Total")
 
     # HC input needed before bench_pct is calculated - rendered after tables
-    hc = st.session_state.get("hc_input", 2053)
+    hc = st.session_state.get("hc_input", 2013)
 
     bench_pct = grand_total[WEEKS].values[0] / hc * 100
     bench_pct_row = pd.DataFrame(
@@ -937,7 +937,7 @@ with tab1:
     with hc_col:
         hc = st.number_input(
             "Total HC (Bench % denominator)",
-            min_value=1, value=2053, step=1, key="hc_input",
+            min_value=1, value=2013, step=1, key="hc_input",
         )
     # Recompute bench_pct with the confirmed hc value
     bench_pct = grand_total[WEEKS].values[0] / hc * 100
@@ -1254,7 +1254,7 @@ with tab4:
 
     # -- Pull data from session state / already-computed values ------------
     _fc   = load_bench_forecast()
-    _hc   = st.session_state.get("hc_input", 2053)
+    _hc   = st.session_state.get("hc_input", 2013)
     _work = st.session_state.get("forecast_data", _fc).copy()
 
     # Per-center totals over all weeks
