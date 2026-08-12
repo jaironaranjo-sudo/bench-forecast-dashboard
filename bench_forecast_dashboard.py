@@ -628,13 +628,177 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # =============================================================================
 # TAB 1 - Editable Bench Forecast
 # =============================================================================
+
+# How many of the first N weeks are "actuals" (greyed out header)
+ACTUALS_CUTOFF = 6   # Wk 01–06 are actuals; Wk 07–13 are forecast
+
+# Column header colours
+TBL_ACT_HDR_BG  = "#6f6f6f"   # IBM Gray 50  – actuals header
+TBL_ACT_HDR_FG  = "#ffffff"
+TBL_FC_HDR_BG   = "#0f62fe"   # IBM Blue 60  – forecast header
+TBL_FC_HDR_FG   = "#ffffff"
+
+# Cell tint overlays for actual vs forecast columns (blended over row color)
+# We use a slight desaturation for actuals and keep row color for forecast
+ACT_CELL_ALPHA  = "rgba(111,111,111,0.10)"  # gray wash over actual cells
+FC_CELL_ALPHA   = "rgba(15,98,254,0.07)"    # blue wash over forecast cells
+
+
+def build_colored_table(df: pd.DataFrame, editable: bool = True) -> str:
+    """
+    Render the forecast table with:
+      - Per-center row background colors
+      - Gray column headers + subtle gray cell tint for actual weeks (Wk 01–06)
+      - Blue column headers + subtle blue cell tint for forecast weeks (Wk 07–13)
+      - Editable <input> fields when editable=True
+      - Grand Total row at the bottom
+    """
+    actual_weeks   = WEEKS[:ACTUALS_CUTOFF]
+    forecast_weeks = WEEKS[ACTUALS_CUTOFF:]
+
+    def hdr(week: str) -> str:
+        is_act = week in actual_weeks
+        bg  = TBL_ACT_HDR_BG if is_act else TBL_FC_HDR_BG
+        fg  = TBL_ACT_HDR_FG if is_act else TBL_FC_HDR_FG
+        tag = "● " if is_act else "◆ "
+        return (
+            f'<th style="background:{bg};color:{fg};font-size:0.72rem;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:0.05em;padding:7px 5px;'
+            f'text-align:center;border:1px solid {BORDER};border-bottom:3px solid {bg};">'
+            f'{tag}{week}</th>'
+        )
+
+    center_hdr = (
+        f'<th style="background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};'
+        f'font-size:0.72rem;font-weight:700;text-transform:uppercase;'
+        f'letter-spacing:0.05em;padding:7px 12px;text-align:left;'
+        f'border:1px solid {BORDER};border-bottom:3px solid {TBL_HEADER_BG};">'
+        f'Center</th>'
+    )
+    header_html = center_hdr + "".join(hdr(w) for w in WEEKS)
+
+    inp_base = (
+        "width:100%;background:transparent;border:none;outline:none;"
+        "font-size:0.85rem;text-align:center;padding:0;margin:0;"
+        "color:inherit;-moz-appearance:textfield;"
+        "-webkit-appearance:none;"
+    )
+
+    rows_html = ""
+    for _, row in df.iterrows():
+        center = row["Center"]
+        bg, fg = CENTER_ROW_COLORS.get(center, (SURFACE, TEXT_PRI))
+        center_td = (
+            f'<td style="background:{bg};color:{fg};font-weight:700;'
+            f'font-size:0.82rem;padding:7px 12px;border:1px solid {BORDER};'
+            f'white-space:nowrap;">{center}</td>'
+        )
+        cells = center_td
+        for w in WEEKS:
+            val   = int(row[w])
+            is_act = w in actual_weeks
+            overlay = ACT_CELL_ALPHA if is_act else FC_CELL_ALPHA
+            cell_bg = f"background:{bg};"
+            # Slightly mute text for actuals to reinforce read-only feel
+            cell_fg = f"color:{fg};opacity:{0.72 if is_act else 1.0};"
+            cid = f"{center.replace(' ', '_')}_{w.replace(' ', '_')}"
+            if editable:
+                cells += (
+                    f'<td style="{cell_bg}{cell_fg}padding:5px 3px;'
+                    f'border:1px solid {BORDER};text-align:center;position:relative;">'
+                    f'<div style="position:absolute;inset:0;background:{overlay};pointer-events:none;"></div>'
+                    f'<input id="{cid}" name="{cid}" type="number" min="0" max="9999" value="{val}" '
+                    f'style="{inp_base}" oninput="recalc()" />'
+                    f'</td>'
+                )
+            else:
+                cells += (
+                    f'<td style="{cell_bg}{cell_fg}padding:5px 8px;'
+                    f'border:1px solid {BORDER};text-align:center;position:relative;">'
+                    f'<div style="position:absolute;inset:0;background:{overlay};pointer-events:none;"></div>'
+                    f'{val}</td>'
+                )
+        rows_html += f"<tr>{cells}</tr>\n"
+
+    # Grand Total row
+    totals = {w: int(df[w].sum()) for w in WEEKS}
+    total_cells = (
+        f'<td style="background:{TBL_TOTAL_BG};color:{TBL_TOTAL_FG};'
+        f'font-weight:700;font-size:0.82rem;padding:7px 12px;'
+        f'border:1px solid {BORDER};white-space:nowrap;">Grand Total</td>'
+    )
+    for w in WEEKS:
+        is_act = w in actual_weeks
+        overlay = ACT_CELL_ALPHA if is_act else FC_CELL_ALPHA
+        wid = w.replace(" ", "_")
+        total_id = f'id="tot_{wid}"' if editable else ""
+        total_cells += (
+            f'<td {total_id} style="background:{TBL_TOTAL_BG};color:{TBL_TOTAL_FG};'
+            f'font-weight:700;padding:5px 8px;border:1px solid {BORDER};text-align:center;">'
+            f'{totals[w]}</td>'
+        )
+    rows_html += f"<tr>{total_cells}</tr>\n"
+
+    legend = (
+        f'<div style="display:flex;gap:16px;margin-bottom:8px;font-size:0.75rem;">'
+        f'<span style="display:inline-flex;align-items:center;gap:5px;">'
+        f'<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:{TBL_ACT_HDR_BG};"></span>'
+        f'<span style="color:{TEXT_SEC};">● Actual bench (Wk 01–0{ACTUALS_CUTOFF})</span></span>'
+        f'<span style="display:inline-flex;align-items:center;gap:5px;">'
+        f'<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:{TBL_FC_HDR_BG};"></span>'
+        f'<span style="color:{TEXT_SEC};">◆ Forecast (Wk 0{ACTUALS_CUTOFF+1}–13)</span></span>'
+        f'</div>'
+    )
+
+    js = ""
+    if editable:
+        centers_js = "[" + ",".join(f'"{c}"' for c in CENTERS) + "]"
+        weeks_js   = "[" + ",".join(f'"{w}"' for w in WEEKS) + "]"
+        js = f"""
+<script>
+const CENTERS = {centers_js};
+const WEEKS   = {weeks_js};
+function getId(c,w){{ return c.replace(/ /g,'_')+'_'+w.replace(/ /g,'_'); }}
+function recalc(){{
+  WEEKS.forEach(w=>{{
+    let tot=0;
+    CENTERS.forEach(c=>{{
+      const el=document.getElementById(getId(c,w));
+      if(el) tot+=(parseInt(el.value)||0);
+    }});
+    const td=document.getElementById('tot_'+w.replace(/ /g,'_'));
+    if(td) td.textContent=tot;
+  }});
+}}
+window.addEventListener('load', recalc);
+</script>"""
+
+    return f"""
+<style>
+  body{{margin:0;padding:0;background:{BG};}}
+  table{{border-collapse:collapse;width:100%;font-family:"IBM Plex Sans",Inter,system-ui,sans-serif;}}
+  input[type=number]{{outline:none!important;box-shadow:none!important;-moz-appearance:textfield!important;}}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{{-webkit-appearance:none!important;margin:0;display:none;}}
+  tr:hover td{{filter:brightness(1.06);}}
+</style>
+{legend}
+<div style="overflow-x:auto;border-radius:8px;border:1px solid {BORDER};">
+  <table>
+    <thead><tr>{header_html}</tr></thead>
+    <tbody>{rows_html}</tbody>
+  </table>
+</div>
+{js}
+"""
+
+
 with tab1:
     # ---- Load base data, then apply any persisted overrides ----------------
     df_forecast = load_bench_forecast()
     saved = load_overrides()
 
     if "forecast_data" not in st.session_state:
-        # On first load: prefer saved overrides, fall back to xlsx
         st.session_state["forecast_data"] = saved.copy() if saved is not None else df_forecast.copy()
 
     working = st.session_state["forecast_data"].copy()
@@ -650,48 +814,85 @@ with tab1:
         )
         st.markdown(f'<div class="sec-title">Weekly Headcount by Center - read only</div>',
                     unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="sec-title">Weekly Headcount by Center - click any cell to edit, then click Save Changes</div>',
-                    unsafe_allow_html=True)
-
-    # ---- Editable table via st.data_editor ---------------------------------
-    if EDITING_LOCKED:
-        grey_columns = [f"Wk {i:02d}" for i in range(1, 7)]
-        styled_table(working, total_rows=[], grey_columns=grey_columns)
+        # Read-only: render the styled colored table
+        components.html(build_colored_table(working, editable=False),
+                        height=len(CENTERS) * 42 + 100, scrolling=False)
         edited = working.copy()
     else:
-        # Column config: Center is read-only; all week columns are numeric inputs
-        col_cfg = {"Center": st.column_config.TextColumn("Center", disabled=True)}
-        for w in WEEKS:
-            col_cfg[w] = st.column_config.NumberColumn(w, min_value=0, max_value=9999, step=1, format="%d")
+        st.markdown(f'<div class="sec-title">Weekly Headcount by Center</div>',
+                    unsafe_allow_html=True)
 
-        edited_raw = st.data_editor(
-            working,
-            column_config=col_cfg,
-            use_container_width=True,
-            hide_index=True,
-            num_rows="fixed",
-            key="forecast_editor",
-        )
+        # ---- Colored visual table (display only, always current) -----------
+        components.html(build_colored_table(working, editable=False),
+                        height=len(CENTERS) * 42 + 100, scrolling=False)
 
-        # Keep session state in sync with whatever is currently in the editor
-        st.session_state["forecast_data"] = edited_raw.copy()
+        # ---- Edit form below the table -------------------------------------
+        with st.expander("✏️  Edit values", expanded=False):
+            st.caption("Update any cell below, then click **Apply & Save** to persist changes.")
+            with st.form("forecast_form"):
+                # Header row labels
+                hdr_cols = st.columns([2] + [1] * len(WEEKS))
+                hdr_cols[0].markdown(
+                    f'<div style="font-size:0.7rem;font-weight:700;color:{TEXT_SEC};'
+                    f'text-transform:uppercase;padding-top:6px;">Center</div>',
+                    unsafe_allow_html=True,
+                )
+                for i, w in enumerate(WEEKS):
+                    is_act = i < ACTUALS_CUTOFF
+                    color  = TBL_ACT_HDR_BG if is_act else TBL_FC_HDR_BG
+                    hdr_cols[i + 1].markdown(
+                        f'<div style="font-size:0.68rem;font-weight:700;color:{color};'
+                        f'text-transform:uppercase;text-align:center;padding-top:6px;">{w}</div>',
+                        unsafe_allow_html=True,
+                    )
 
-        # ---- Persist / Reset buttons ----------------------------------------
-        btn_col1, btn_col2, _ = st.columns([1, 1, 4])
-        with btn_col1:
-            if st.button("💾  Save Changes", use_container_width=True):
-                save_overrides(edited_raw)
-                st.session_state["forecast_data"] = edited_raw.copy()
-                st.success("Changes saved — they will persist across restarts.")
-        with btn_col2:
+                form_values: dict[str, dict[str, int]] = {}
+                for _, row in working.iterrows():
+                    center = row["Center"]
+                    bg, fg = CENTER_ROW_COLORS.get(center, (SURFACE, TEXT_PRI))
+                    row_cols = st.columns([2] + [1] * len(WEEKS))
+                    row_cols[0].markdown(
+                        f'<div style="background:{bg};color:{fg};font-weight:700;'
+                        f'font-size:0.82rem;padding:6px 8px;border-radius:4px;'
+                        f'margin-top:2px;">{center}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    form_values[center] = {}
+                    for i, w in enumerate(WEEKS):
+                        val = int(row[w])
+                        key = f"form_{center}_{w}"
+                        form_values[center][w] = row_cols[i + 1].number_input(
+                            label=w,
+                            value=val,
+                            min_value=0,
+                            max_value=9999,
+                            step=1,
+                            key=key,
+                            label_visibility="collapsed",
+                        )
+
+                submitted = st.form_submit_button("💾  Apply & Save", use_container_width=True)
+                if submitted:
+                    new_rows = [
+                        {"Center": c, **{w: form_values[c][w] for w in WEEKS}}
+                        for c in CENTERS
+                    ]
+                    updated_df = pd.DataFrame(new_rows)
+                    save_overrides(updated_df)
+                    st.session_state["forecast_data"] = updated_df.copy()
+                    st.success("Changes saved — they will persist across restarts.")
+                    st.rerun()
+
+        # Reset button outside the form
+        rst_col, _ = st.columns([1, 5])
+        with rst_col:
             if st.button("↺  Reset to Original", use_container_width=True):
                 if OVERRIDES_PATH.exists():
                     OVERRIDES_PATH.unlink()
                 st.session_state.pop("forecast_data", None)
                 st.rerun()
 
-        edited = edited_raw.copy()
+        edited = working.copy()
 
     # -- Grand Total + Bench % - flush below the editable table -----------
     grand_total = edited[WEEKS].sum().to_frame().T
