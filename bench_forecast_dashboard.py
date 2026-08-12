@@ -837,7 +837,7 @@ with tab1:
         # ---- Colored visual table (display only, always current) -----------
         components.html(build_colored_table(working, editable=False),
                         height=len(CENTERS) * 42 + 100, scrolling=False)
-        st.markdown("<div style='margin-top:-2.5rem'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:-5rem'></div>", unsafe_allow_html=True)
 
         # ---- Edit form below the table (forecast weeks only) ---------------
         forecast_weeks_only = WEEKS[ACTUALS_CUTOFF:]
