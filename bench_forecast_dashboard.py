@@ -66,8 +66,9 @@ TBL_TOTAL_FG    = "#ffffff"
 # -----------------------------------------------------------------------------
 # Config
 # -----------------------------------------------------------------------------
-XLSX_PATH = Path(__file__).parent / "NA Bench Forecast.xlsx"
-LOGO_PATH = Path(__file__).parent / "IBM LOGO.png"
+XLSX_PATH      = Path(__file__).parent / "NA Bench Forecast.xlsx"
+LOGO_PATH      = Path(__file__).parent / "IBM LOGO.png"
+OVERRIDES_PATH = Path(__file__).parent / "bench_overrides.json"
 CENTERS   = ["Baton Rouge", "Buffalo", "Calgary", "Halifax", "Lansing", "Monroe", "Quebec"]
 WEEKS     = [f"Wk {i:02d}" for i in range(1, 14)]
 
@@ -521,6 +522,31 @@ def load_bench_forecast() -> pd.DataFrame:
     return raw[["Center"] + WEEKS]
 
 
+def load_overrides() -> pd.DataFrame | None:
+    """Load persisted user edits from JSON, or return None if none exist."""
+    if not OVERRIDES_PATH.exists():
+        return None
+    try:
+        import json
+        with open(OVERRIDES_PATH, "r") as f:
+            data = json.load(f)
+        df = pd.DataFrame(data)
+        df["Center"] = df["Center"].astype(str)
+        for w in WEEKS:
+            if w in df.columns:
+                df[w] = pd.to_numeric(df[w], errors="coerce").fillna(0).astype(int)
+        return df[["Center"] + WEEKS]
+    except Exception:
+        return None
+
+
+def save_overrides(df: pd.DataFrame) -> None:
+    """Persist the edited forecast DataFrame to JSON on disk."""
+    import json
+    with open(OVERRIDES_PATH, "w") as f:
+        json.dump(df[["Center"] + WEEKS].to_dict(orient="records"), f, indent=2)
+
+
 @st.cache_data
 def load_historic() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Historic Bench Data", header=0)
@@ -602,11 +628,13 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1 - Editable Bench Forecast
 # =============================================================================
 with tab1:
-    import streamlit.components.v1 as components
-
+    # ---- Load base data, then apply any persisted overrides ----------------
     df_forecast = load_bench_forecast()
+    saved = load_overrides()
+
     if "forecast_data" not in st.session_state:
-        st.session_state["forecast_data"] = df_forecast.copy()
+        # On first load: prefer saved overrides, fall back to xlsx
+        st.session_state["forecast_data"] = saved.copy() if saved is not None else df_forecast.copy()
 
     working = st.session_state["forecast_data"].copy()
 
@@ -622,152 +650,47 @@ with tab1:
         st.markdown(f'<div class="sec-title">Weekly Headcount by Center - read only</div>',
                     unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="sec-title">Weekly Headcount by Center - click any cell to edit</div>',
+        st.markdown(f'<div class="sec-title">Weekly Headcount by Center - click any cell to edit, then click Save Changes</div>',
                     unsafe_allow_html=True)
 
-    # -- Build one combined HTML table with <input> cells -----------------
-    def build_editable_table(df: pd.DataFrame) -> str:
-        th_style = (
-            f"background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};"
-            f"font-size:0.75rem;font-weight:700;text-transform:uppercase;"
-            f"letter-spacing:0.06em;padding:8px 6px;text-align:center;"
-            f"border:1px solid {BORDER};border-bottom:2px solid {ACCENT};"
-        )
-        th_first = th_style + "text-align:left;padding-left:12px;"
-        inp_style = (
-            f"width:100%;background:transparent;border:none;color:inherit;"
-            f"font-size:0.85rem;text-align:center;padding:0;margin:0;"
-            f"-moz-appearance:textfield;"
-        )
-        td_num_style = (
-            f"padding:5px 4px;border:1px solid {BORDER};"
-            f"text-align:center;vertical-align:middle;"
-        )
-
-        header = "".join(
-            f'<th style="{th_first}">Center</th>' +
-            "".join(f'<th style="{th_style}">{w}</th>' for w in WEEKS)
-        )
-
-        rows_html = ""
-        for _, row in df.iterrows():
-            center = row["Center"]
-            bg, fg = CENTER_ROW_COLORS.get(center, (SURFACE, TEXT_PRI))
-            td_center = (
-                f'<td style="background:{bg};color:{fg};font-weight:600;'
-                f'font-size:0.82rem;padding:6px 12px;border:1px solid {BORDER};'
-                f'white-space:nowrap;">{center}</td>'
-            )
-            cells = td_center
-            for w in WEEKS:
-                val = int(row[w])
-                cid = f"{center.replace(' ', '_')}_{w.replace(' ', '_')}"
-                cells += (
-                    f'<td style="background:{bg};{td_num_style}">'
-                    f'<input id="{cid}" type="number" min="0" max="9999" value="{val}" '
-                    f'style="{inp_style}color:{fg};" '
-                    f'oninput="recalc()" />'
-                    f'</td>'
-                )
-            rows_html += f"<tr>{cells}</tr>\n"
-
-        # Grand Total row (read-only, calculated by JS)
-        total_td = (
-            f'<td style="background:{TBL_TOTAL_BG};color:{TBL_TOTAL_FG};'
-            f'font-weight:700;font-size:0.82rem;padding:6px 12px;'
-            f'border:1px solid {BORDER};">Grand Total</td>'
-        )
-        for w in WEEKS:
-            wid = w.replace(" ", "_")
-            total_td += (
-                f'<td id="tot_{wid}" style="background:{TBL_TOTAL_BG};'
-                f'color:{TBL_TOTAL_FG};font-weight:700;{td_num_style}">0</td>'
-            )
-        rows_html += f"<tr>{total_td}</tr>\n"
-
-        # Centers list for JS
-        centers_js = "[" + ",".join(f'"{c}"' for c in CENTERS) + "]"
-        weeks_js   = "[" + ",".join(f'"{w}"' for w in WEEKS) + "]"
-
-        js = f"""
-<script>
-const CENTERS = {centers_js};
-const WEEKS   = {weeks_js};
-
-function getId(c, w) {{
-  return c.replace(/ /g,'_') + '_' + w.replace(/ /g,'_');
-}}
-
-function recalc() {{
-  WEEKS.forEach(w => {{
-    let tot = 0;
-    CENTERS.forEach(c => {{
-      const el = document.getElementById(getId(c, w));
-      if (el) tot += (parseInt(el.value) || 0);
-    }});
-    const td = document.getElementById('tot_' + w.replace(/ /g,'_'));
-    if (td) td.textContent = tot;
-  }});
-  // send data back to Streamlit
-  const data = {{}};
-  CENTERS.forEach(c => {{
-    data[c] = {{}};
-    WEEKS.forEach(w => {{
-      const el = document.getElementById(getId(c, w));
-      data[c][w] = el ? (parseInt(el.value) || 0) : 0;
-    }});
-  }});
-  window.parent.postMessage({{type:'bench_data', payload: data}}, '*');
-}}
-
-// run once on load to populate Grand Total
-window.addEventListener('load', recalc);
-</script>
-"""
-
-        return f"""
-<style>
-  body {{ margin:0; padding:0; background:{BG}; }}
-  table {{ border-collapse:collapse; width:100%; font-family:Inter,system-ui,sans-serif; }}
-  input[type=number] {{
-    outline: none !important;
-    box-shadow: none !important;
-    -moz-appearance: textfield !important;
-  }}
-  input[type=number]:focus {{
-    outline: none !important;
-    box-shadow: none !important;
-  }}
-  input[type=number]::-webkit-outer-spin-button,
-  input[type=number]::-webkit-inner-spin-button {{
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    margin: 0;
-    display: none;
-  }}
-  tr:hover td {{ filter: brightness(1.12); }}
-</style>
-<div style="overflow-x:auto;border-radius:8px;border:1px solid {BORDER};">
-  <table>
-    <thead><tr>{header}</tr></thead>
-    <tbody>{rows_html}</tbody>
-  </table>
-</div>
-{js}
-"""
-
+    # ---- Editable table via st.data_editor ---------------------------------
     if EDITING_LOCKED:
         grey_columns = [f"Wk {i:02d}" for i in range(1, 7)]
         styled_table(working, total_rows=[], grey_columns=grey_columns)
+        edited = working.copy()
     else:
-        table_html = build_editable_table(working)
-        # Row height: 40px per center + 44px for grand-total row + 38px header
-        components.html(table_html, height=len(CENTERS) * 40 + 82, scrolling=False)
+        # Column config: Center is read-only; all week columns are numeric inputs
+        col_cfg = {"Center": st.column_config.TextColumn("Center", disabled=True)}
+        for w in WEEKS:
+            col_cfg[w] = st.column_config.NumberColumn(w, min_value=0, max_value=9999, step=1, format="%d")
 
-    # Pull everything that follows up to close the iframe's bottom whitespace
-    st.markdown("<div style='margin-top:-2rem'></div>", unsafe_allow_html=True)
+        edited_raw = st.data_editor(
+            working,
+            column_config=col_cfg,
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            key="forecast_editor",
+        )
 
-    edited = working.copy()
+        # Keep session state in sync with whatever is currently in the editor
+        st.session_state["forecast_data"] = edited_raw.copy()
+
+        # ---- Persist / Reset buttons ----------------------------------------
+        btn_col1, btn_col2, _ = st.columns([1, 1, 4])
+        with btn_col1:
+            if st.button("💾  Save Changes", use_container_width=True):
+                save_overrides(edited_raw)
+                st.session_state["forecast_data"] = edited_raw.copy()
+                st.success("Changes saved — they will persist across restarts.")
+        with btn_col2:
+            if st.button("↺  Reset to Original", use_container_width=True):
+                if OVERRIDES_PATH.exists():
+                    OVERRIDES_PATH.unlink()
+                st.session_state.pop("forecast_data", None)
+                st.rerun()
+
+        edited = edited_raw.copy()
 
     # -- Grand Total + Bench % - flush below the editable table -----------
     grand_total = edited[WEEKS].sum().to_frame().T
