@@ -903,15 +903,6 @@ with tab1:
                     st.success("Changes saved — they will persist across restarts.")
                     st.rerun()
 
-        # Reset button outside the form
-        rst_col, _ = st.columns([1, 5])
-        with rst_col:
-            if st.button("↺  Reset to Original", use_container_width=True):
-                if OVERRIDES_PATH.exists():
-                    OVERRIDES_PATH.unlink()
-                st.session_state.pop("forecast_data", None)
-                st.rerun()
-
         edited = working.copy()
 
     # -- Grand Total + Bench % - flush below the editable table -----------
