@@ -165,6 +165,21 @@ except Exception:
     EDITING_LOCKED = False
 
 # -----------------------------------------------------------------------------
+# Actuals cutoff - how many weeks from the start are locked as "actual bench"
+# Set via Streamlit Cloud Secrets:  [forecast]  actuals_through = 6
+# Advance this number each week as actuals are confirmed.
+# Falls back to env var ACTUALS_THROUGH, then hard-coded default of 6.
+# -----------------------------------------------------------------------------
+try:
+    ACTUALS_CUTOFF = int(st.secrets["forecast"]["actuals_through"])
+except Exception:
+    try:
+        ACTUALS_CUTOFF = int(os.environ.get("ACTUALS_THROUGH", 6))
+    except Exception:
+        ACTUALS_CUTOFF = 6
+ACTUALS_CUTOFF = max(0, min(ACTUALS_CUTOFF, len([f"Wk {i:02d}" for i in range(1, 14)])))
+
+# -----------------------------------------------------------------------------
 # Global CSS - dark theme
 # -----------------------------------------------------------------------------
 st.markdown(f"""
@@ -629,9 +644,6 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1 - Editable Bench Forecast
 # =============================================================================
 
-# How many of the first N weeks are "actuals" (greyed out header)
-ACTUALS_CUTOFF = 6   # Wk 01–06 are actuals; Wk 07–13 are forecast
-
 # Column header colours
 TBL_ACT_HDR_BG  = "#6f6f6f"   # IBM Gray 50  – actuals header
 TBL_ACT_HDR_FG  = "#ffffff"
@@ -826,48 +838,56 @@ with tab1:
         components.html(build_colored_table(working, editable=False),
                         height=len(CENTERS) * 42 + 100, scrolling=False)
 
-        # ---- Edit form below the table -------------------------------------
-        with st.expander("✏️  Edit values", expanded=False):
-            st.caption("Update any cell below, then click **Apply & Save** to persist changes.")
+        # ---- Edit form below the table (forecast weeks only) ---------------
+        forecast_weeks_only = WEEKS[ACTUALS_CUTOFF:]
+        actual_weeks_only   = WEEKS[:ACTUALS_CUTOFF]
+
+        cutoff_label = f"Wk {ACTUALS_CUTOFF:02d}" if ACTUALS_CUTOFF > 0 else "none"
+        with st.expander("✏️  Edit forecast values", expanded=False):
+            st.caption(
+                f"🔒 **Wk 01–{cutoff_label} are locked** (actual bench data). "
+                f"Only forecast weeks (**{WEEKS[ACTUALS_CUTOFF] if ACTUALS_CUTOFF < len(WEEKS) else '—'}–Wk 13**) are editable. "
+                f"Click **Apply & Save** when done."
+            )
             with st.form("forecast_form"):
-                # Header row labels
-                hdr_cols = st.columns([2] + [1] * len(WEEKS))
+                # Header: Center label + forecast week labels only
+                hdr_cols = st.columns([2] + [1] * len(forecast_weeks_only))
                 hdr_cols[0].markdown(
                     f'<div style="font-size:0.7rem;font-weight:700;color:{TEXT_SEC};'
                     f'text-transform:uppercase;padding-top:6px;">Center</div>',
                     unsafe_allow_html=True,
                 )
-                for i, w in enumerate(WEEKS):
-                    is_act = i < ACTUALS_CUTOFF
-                    color  = TBL_ACT_HDR_BG if is_act else TBL_FC_HDR_BG
+                for i, w in enumerate(forecast_weeks_only):
                     hdr_cols[i + 1].markdown(
-                        f'<div style="font-size:0.68rem;font-weight:700;color:{color};'
-                        f'text-transform:uppercase;text-align:center;padding-top:6px;">{w}</div>',
+                        f'<div style="font-size:0.68rem;font-weight:700;color:{TBL_FC_HDR_BG};'
+                        f'text-transform:uppercase;text-align:center;padding-top:6px;">◆ {w}</div>',
                         unsafe_allow_html=True,
                     )
 
+                # One row per center — only forecast week inputs rendered
                 form_values: dict[str, dict[str, int]] = {}
                 for _, row in working.iterrows():
                     center = row["Center"]
                     bg, fg = CENTER_ROW_COLORS.get(center, (SURFACE, TEXT_PRI))
-                    row_cols = st.columns([2] + [1] * len(WEEKS))
+                    row_cols = st.columns([2] + [1] * len(forecast_weeks_only))
                     row_cols[0].markdown(
                         f'<div style="background:{bg};color:{fg};font-weight:700;'
                         f'font-size:0.82rem;padding:6px 8px;border-radius:4px;'
                         f'margin-top:2px;">{center}</div>',
                         unsafe_allow_html=True,
                     )
-                    form_values[center] = {}
-                    for i, w in enumerate(WEEKS):
+                    # Preserve actual-week values unchanged
+                    form_values[center] = {w: int(row[w]) for w in actual_weeks_only}
+                    # Render editable inputs for forecast weeks only
+                    for i, w in enumerate(forecast_weeks_only):
                         val = int(row[w])
-                        key = f"form_{center}_{w}"
                         form_values[center][w] = row_cols[i + 1].number_input(
                             label=w,
                             value=val,
                             min_value=0,
                             max_value=9999,
                             step=1,
-                            key=key,
+                            key=f"form_{center}_{w}",
                             label_visibility="collapsed",
                         )
 
