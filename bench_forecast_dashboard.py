@@ -857,7 +857,7 @@ with tab1:
         actual_weeks_only   = WEEKS[:ACTUALS_CUTOFF]
 
         cutoff_label = f"Wk {ACTUALS_CUTOFF:02d}" if ACTUALS_CUTOFF > 0 else "none"
-        with st.expander("✏️  Edit forecast values", expanded=False):
+        with st.expander("Edit forecast values", expanded=False):
             if not forecast_weeks_only:
                 st.info("All weeks are currently locked as actuals. Reduce `actuals_through` in Secrets to re-enable editing.")
             else:
