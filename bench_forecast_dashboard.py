@@ -396,9 +396,11 @@ st.markdown(f"""
         background: {SURFACE} !important;
         border: 1px solid {BORDER} !important;
         border-radius: 6px;
-        color: {ACCENT} !important;
         font-weight: 600;
         font-size: 0.85rem;
+    }}
+    [data-testid="stExpander"] summary p {{
+        color: {ACCENT} !important;
     }}
     [data-testid="stExpander"] > div[data-testid="stExpanderDetails"] {{
         background: {SURFACE} !important;
