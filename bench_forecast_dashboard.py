@@ -171,32 +171,12 @@ except Exception:
 
 # -----------------------------------------------------------------------------
 # Actuals cutoff - how many weeks from the start are locked as "actual bench"
-# Set via Streamlit Cloud Secrets:  [forecast]  actuals_through = 7
-# Advance this number each week as actuals are confirmed.
-# Falls back to env var ACTUALS_THROUGH, then auto-detects from the Excel data.
-# Auto-detection: counts contiguous weeks from Wk 01 where every center row
-# in the "Bench Forecast" sheet has a non-zero value.
+# PRIMARY:  Streamlit Cloud Secrets  →  [forecast]  actuals_through = 7
+# FALLBACK: ACTUALS_THROUGH env var  →  export ACTUALS_THROUGH=7
+# DEFAULT:  hard-coded value below   →  safe default when neither is set
+# Advance by 1 each week as new actuals are uploaded to the Excel file.
 # -----------------------------------------------------------------------------
-def _detect_actuals_cutoff_from_excel() -> int:
-    """
-    Inspect the Excel file and return the number of leading weeks where every
-    center has a non-zero value (i.e. actuals are present).  Falls back to 0
-    if the file cannot be read.
-    """
-    try:
-        raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
-        raw.columns = ["Center"] + [f"Wk {i:02d}" for i in range(1, 14)] + list(raw.columns[14:])
-        raw = raw[raw["Center"].isin(CENTERS)].reset_index(drop=True)
-        cutoff = 0
-        for w in [f"Wk {i:02d}" for i in range(1, 14)]:
-            col = pd.to_numeric(raw[w], errors="coerce").fillna(0)
-            if (col > 0).all():
-                cutoff += 1
-            else:
-                break
-        return cutoff
-    except Exception:
-        return 0
+_ACTUALS_DEFAULT = 7   # ← update this if no Secrets / env var is configured
 
 try:
     ACTUALS_CUTOFF = int(st.secrets["forecast"]["actuals_through"])
@@ -204,8 +184,8 @@ except Exception:
     try:
         ACTUALS_CUTOFF = int(os.environ.get("ACTUALS_THROUGH", ""))
     except Exception:
-        ACTUALS_CUTOFF = _detect_actuals_cutoff_from_excel()
-ACTUALS_CUTOFF = max(0, min(ACTUALS_CUTOFF, len([f"Wk {i:02d}" for i in range(1, 14)])))
+        ACTUALS_CUTOFF = _ACTUALS_DEFAULT
+ACTUALS_CUTOFF = max(0, min(ACTUALS_CUTOFF, len(WEEKS)))
 
 # -----------------------------------------------------------------------------
 # Global CSS - dark theme
@@ -878,64 +858,67 @@ with tab1:
 
         cutoff_label = f"Wk {ACTUALS_CUTOFF:02d}" if ACTUALS_CUTOFF > 0 else "none"
         with st.expander("✏️  Edit forecast values", expanded=False):
-            st.caption(
-                f"🔒 **Wk 01–{cutoff_label} are locked** (actual bench data). "
-                f"Only forecast weeks (**{WEEKS[ACTUALS_CUTOFF] if ACTUALS_CUTOFF < len(WEEKS) else '—'}–Wk 13**) are editable. "
-                f"Click **Apply & Save** when done."
-            )
-            with st.form("forecast_form"):
-                # Header: Center label + forecast week labels only
-                hdr_cols = st.columns([2] + [1] * len(forecast_weeks_only))
-                hdr_cols[0].markdown(
-                    f'<div style="font-size:0.7rem;font-weight:700;color:{TEXT_SEC};'
-                    f'text-transform:uppercase;padding-top:6px;">Center</div>',
-                    unsafe_allow_html=True,
+            if not forecast_weeks_only:
+                st.info("All weeks are currently locked as actuals. Reduce `actuals_through` in Secrets to re-enable editing.")
+            else:
+                st.caption(
+                    f"🔒 **Wk 01–{cutoff_label} are locked** (actual bench data). "
+                    f"Only forecast weeks (**{forecast_weeks_only[0]}–Wk 13**) are editable. "
+                    f"Click **Apply & Save** when done."
                 )
-                for i, w in enumerate(forecast_weeks_only):
-                    hdr_cols[i + 1].markdown(
-                        f'<div style="font-size:0.68rem;font-weight:700;color:{TBL_FC_HDR_BG};'
-                        f'text-transform:uppercase;text-align:center;padding-top:6px;">◆ {w}</div>',
+                with st.form("forecast_form"):
+                    # Header: Center label + forecast week labels only
+                    hdr_cols = st.columns([2] + [1] * len(forecast_weeks_only))
+                    hdr_cols[0].markdown(
+                        f'<div style="font-size:0.7rem;font-weight:700;color:{TEXT_SEC};'
+                        f'text-transform:uppercase;padding-top:6px;">Center</div>',
                         unsafe_allow_html=True,
                     )
-
-                # One row per center — only forecast week inputs rendered
-                form_values: dict[str, dict[str, int]] = {}
-                for _, row in working.iterrows():
-                    center = row["Center"]
-                    bg, fg = CENTER_ROW_COLORS.get(center, (SURFACE, TEXT_PRI))
-                    row_cols = st.columns([2] + [1] * len(forecast_weeks_only))
-                    row_cols[0].markdown(
-                        f'<div style="background:{bg};color:{fg};font-weight:700;'
-                        f'font-size:0.82rem;padding:6px 8px;border-radius:4px;'
-                        f'margin-top:2px;">{center}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    # Preserve actual-week values unchanged
-                    form_values[center] = {w: int(row[w]) for w in actual_weeks_only}
-                    # Render editable inputs for forecast weeks only
                     for i, w in enumerate(forecast_weeks_only):
-                        val = int(row[w])
-                        form_values[center][w] = row_cols[i + 1].number_input(
-                            label=w,
-                            value=val,
-                            min_value=0,
-                            max_value=9999,
-                            step=1,
-                            key=f"form_{center}_{w}",
-                            label_visibility="collapsed",
+                        hdr_cols[i + 1].markdown(
+                            f'<div style="font-size:0.68rem;font-weight:700;color:{TBL_FC_HDR_BG};'
+                            f'text-transform:uppercase;text-align:center;padding-top:6px;">◆ {w}</div>',
+                            unsafe_allow_html=True,
                         )
 
-                submitted = st.form_submit_button("💾  Apply & Save", use_container_width=True)
-                if submitted:
-                    new_rows = [
-                        {"Center": c, **{w: form_values[c][w] for w in WEEKS}}
-                        for c in CENTERS
-                    ]
-                    updated_df = pd.DataFrame(new_rows)
-                    save_overrides(updated_df)
-                    st.session_state["forecast_data"] = updated_df.copy()
-                    st.success("Changes saved — they will persist across restarts.")
-                    st.rerun()
+                    # One row per center — only forecast week inputs rendered
+                    form_values: dict[str, dict[str, int]] = {}
+                    for _, row in working.iterrows():
+                        center = row["Center"]
+                        bg, fg = CENTER_ROW_COLORS.get(center, (SURFACE, TEXT_PRI))
+                        row_cols = st.columns([2] + [1] * len(forecast_weeks_only))
+                        row_cols[0].markdown(
+                            f'<div style="background:{bg};color:{fg};font-weight:700;'
+                            f'font-size:0.82rem;padding:6px 8px;border-radius:4px;'
+                            f'margin-top:2px;">{center}</div>',
+                            unsafe_allow_html=True,
+                        )
+                        # Preserve actual-week values unchanged
+                        form_values[center] = {w: int(row[w]) for w in actual_weeks_only}
+                        # Render editable inputs for forecast weeks only
+                        for i, w in enumerate(forecast_weeks_only):
+                            val = int(row[w])
+                            form_values[center][w] = row_cols[i + 1].number_input(
+                                label=w,
+                                value=val,
+                                min_value=0,
+                                max_value=9999,
+                                step=1,
+                                key=f"form_{center}_{w}",
+                                label_visibility="collapsed",
+                            )
+
+                    submitted = st.form_submit_button("💾  Apply & Save", use_container_width=True)
+                    if submitted:
+                        new_rows = [
+                            {"Center": c, **{w: form_values[c][w] for w in WEEKS}}
+                            for c in CENTERS
+                        ]
+                        updated_df = pd.DataFrame(new_rows)
+                        save_overrides(updated_df)
+                        st.session_state["forecast_data"] = updated_df.copy()
+                        st.success("Changes saved — they will persist across restarts.")
+                        st.rerun()
 
         edited = working.copy()
 
