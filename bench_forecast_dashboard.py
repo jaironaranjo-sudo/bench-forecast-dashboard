@@ -982,19 +982,19 @@ with tab1:
             hovertemplate=f"<b>{center}</b><br>%{{x}}: %{{y}} heads<extra></extra>",
         ))
 
-    # Grand Total line - white, dashed, with data labels
+    # Grand Total line - dark charcoal, dashed, with data labels
     total_vals = edited[WEEKS].sum().tolist()
     fig_prev.add_trace(go.Scatter(
         name="Grand Total",
         x=WEEKS,
         y=total_vals,
         mode="lines+markers+text",
-        line=dict(color="#ffffff", width=2.5, dash="dash"),
-        marker=dict(size=7, color="#ffffff", symbol="diamond",
+        line=dict(color="#161616", width=2.5, dash="dash"),
+        marker=dict(size=7, color="#161616", symbol="diamond",
                     line=dict(color=SURFACE, width=1.5)),
         text=[str(int(v)) for v in total_vals],
         textposition="top center",
-        textfont=dict(color="#ffffff", size=10, family="Inter, system-ui"),
+        textfont=dict(color="#161616", size=10, family="Inter, system-ui"),
         hovertemplate="<b>Grand Total</b><br>%{x}: %{y} heads<extra></extra>",
     ))
 
