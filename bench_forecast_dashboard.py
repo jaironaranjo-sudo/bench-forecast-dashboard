@@ -171,17 +171,40 @@ except Exception:
 
 # -----------------------------------------------------------------------------
 # Actuals cutoff - how many weeks from the start are locked as "actual bench"
-# Set via Streamlit Cloud Secrets:  [forecast]  actuals_through = 6
+# Set via Streamlit Cloud Secrets:  [forecast]  actuals_through = 7
 # Advance this number each week as actuals are confirmed.
-# Falls back to env var ACTUALS_THROUGH, then hard-coded default of 6.
+# Falls back to env var ACTUALS_THROUGH, then auto-detects from the Excel data.
+# Auto-detection: counts contiguous weeks from Wk 01 where every center row
+# in the "Bench Forecast" sheet has a non-zero value.
 # -----------------------------------------------------------------------------
+def _detect_actuals_cutoff_from_excel() -> int:
+    """
+    Inspect the Excel file and return the number of leading weeks where every
+    center has a non-zero value (i.e. actuals are present).  Falls back to 0
+    if the file cannot be read.
+    """
+    try:
+        raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
+        raw.columns = ["Center"] + [f"Wk {i:02d}" for i in range(1, 14)] + list(raw.columns[14:])
+        raw = raw[raw["Center"].isin(CENTERS)].reset_index(drop=True)
+        cutoff = 0
+        for w in [f"Wk {i:02d}" for i in range(1, 14)]:
+            col = pd.to_numeric(raw[w], errors="coerce").fillna(0)
+            if (col > 0).all():
+                cutoff += 1
+            else:
+                break
+        return cutoff
+    except Exception:
+        return 0
+
 try:
     ACTUALS_CUTOFF = int(st.secrets["forecast"]["actuals_through"])
 except Exception:
     try:
-        ACTUALS_CUTOFF = int(os.environ.get("ACTUALS_THROUGH", 6))
+        ACTUALS_CUTOFF = int(os.environ.get("ACTUALS_THROUGH", ""))
     except Exception:
-        ACTUALS_CUTOFF = 6
+        ACTUALS_CUTOFF = _detect_actuals_cutoff_from_excel()
 ACTUALS_CUTOFF = max(0, min(ACTUALS_CUTOFF, len([f"Wk {i:02d}" for i in range(1, 14)])))
 
 # -----------------------------------------------------------------------------
@@ -418,6 +441,9 @@ st.markdown(f"""
 # -----------------------------------------------------------------------------
 # Hero Header
 # -----------------------------------------------------------------------------
+_actuals_label = f"Wk {ACTUALS_CUTOFF:02d}" if ACTUALS_CUTOFF > 0 else "none"
+_forecast_start = f"Wk {ACTUALS_CUTOFF + 1:02d}" if ACTUALS_CUTOFF < 13 else "—"
+
 st.markdown(f"""
 <div class="dash-hero">
     <div class="dash-hero-top">
@@ -428,9 +454,9 @@ st.markdown(f"""
     </div>
     <div>
         <h1>NA Bench Forecast</h1>
-        <p class="sub">North America FNC workforce planning dashboard with actual bench through Week 6 and quarter-end forecast visibility.</p>
+        <p class="sub">North America FNC workforce planning dashboard with actual bench through {_actuals_label} and quarter-end forecast visibility.</p>
         <div class="dash-hero-meta">
-            <span>Actuals loaded through Wk 06</span>
+            <span>Actuals loaded through {_actuals_label}</span>
             <span>Forecast view through Wk 13</span>
             <span>Historic + Q3 comparison included</span>
         </div>
@@ -756,14 +782,16 @@ def build_colored_table(df: pd.DataFrame, editable: bool = True) -> str:
         )
     rows_html += f"<tr>{total_cells}</tr>\n"
 
+    _leg_act_end   = f"Wk {ACTUALS_CUTOFF:02d}" if ACTUALS_CUTOFF > 0 else "none"
+    _leg_fc_start  = f"Wk {ACTUALS_CUTOFF + 1:02d}" if ACTUALS_CUTOFF < 13 else "—"
     legend = (
         f'<div style="display:flex;gap:16px;margin-bottom:8px;font-size:0.75rem;">'
         f'<span style="display:inline-flex;align-items:center;gap:5px;">'
         f'<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:{TBL_ACT_HDR_BG};"></span>'
-        f'<span style="color:{TEXT_SEC};">● Actual bench (Wk 01–0{ACTUALS_CUTOFF})</span></span>'
+        f'<span style="color:{TEXT_SEC};">● Actual bench (Wk 01–{_leg_act_end})</span></span>'
         f'<span style="display:inline-flex;align-items:center;gap:5px;">'
         f'<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:{TBL_FC_HDR_BG};"></span>'
-        f'<span style="color:{TEXT_SEC};">◆ Forecast (Wk 0{ACTUALS_CUTOFF+1}–13)</span></span>'
+        f'<span style="color:{TEXT_SEC};">◆ Forecast ({_leg_fc_start}–Wk 13)</span></span>'
         f'</div>'
     )
 
