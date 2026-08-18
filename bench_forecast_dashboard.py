@@ -202,7 +202,9 @@ st.markdown(f"""
     [data-testid="stSidebar"] {{ background: {SURFACE} !important; }}
 
     /* -- typography -- */
-    * {{ font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif !important; }}
+    html, body, [class*="css"] {{
+        font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    }}
     h1, h2, h3, h4 {{ color: {TEXT_PRI} !important; }}
     p, li, label {{ color: {TEXT_SEC}; }}
 
