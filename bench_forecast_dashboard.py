@@ -1974,7 +1974,7 @@ function copyHTML() {{
 }}
 </script>
 """
-    with st.expander("HTML Email Report - with Charts", expanded=True, icon=None):
+    with st.expander("HTML Email Report - with Charts", expanded=True):
         eml_col, _ = st.columns([1, 3])
         with eml_col:
             st.download_button(
