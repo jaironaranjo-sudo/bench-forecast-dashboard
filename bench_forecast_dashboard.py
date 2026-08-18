@@ -391,17 +391,6 @@ st.markdown(f"""
         border-color: {BORDER} !important;
         color: {TEXT_SEC} !important;
     }}
-    /* expander header styling */
-    [data-testid="stExpander"] summary {{
-        background: {SURFACE} !important;
-        border: 1px solid {BORDER} !important;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.85rem;
-    }}
-    [data-testid="stExpander"] summary p {{
-        color: {ACCENT} !important;
-    }}
     [data-testid="stExpander"] > div[data-testid="stExpanderDetails"] {{
         background: {SURFACE} !important;
         border: 1px solid {BORDER} !important;
