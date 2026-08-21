@@ -1417,99 +1417,187 @@ with tab4:
     w13_color   = _status_color(_w13_pct, bench_target)
     trend_color = GOOD if _trend == "decreasing" else WARN if _trend == "increasing" else ACCENT
 
-    actuals_cutoff_week = 6
-    actual_latest_week = WEEKS[actuals_cutoff_week - 1]
-    actual_total = int(_gt_vals[actuals_cutoff_week - 1])
-    actual_pct = actual_total / _hc * 100
-    post_actual_values = {week: int(_gt_vals[WEEKS.index(week)]) for week in WEEKS[actuals_cutoff_week:]}
-    highest_future_week = max(post_actual_values, key=post_actual_values.get)
-    highest_future_value = post_actual_values[highest_future_week]
-    lowest_future_week = min(post_actual_values, key=post_actual_values.get)
-    lowest_future_value = post_actual_values[lowest_future_week]
-    actual_series = {c: int(_work[_work["Center"] == c][actual_latest_week].values[0])
-                     for c in CENTERS if not _work[_work["Center"] == c].empty}
-    actual_top_center = max(actual_series, key=actual_series.get)
-    actual_top_value = actual_series[actual_top_center]
-    actual_low_center = min(actual_series, key=actual_series.get)
-    actual_low_value = actual_series[actual_low_center]
-    forecast_end_total = int(_gt_vals[-1])
-    forecast_delta = forecast_end_total - actual_total
-    forecast_delta_color = GOOD if forecast_delta < 0 else WARN if forecast_delta > 0 else ACCENT
-    actual_avg_pct = float(pd.Series(_gt_vals[:actuals_cutoff_week]).mean() / _hc * 100)
+    actuals_cutoff_week = ACTUALS_CUTOFF
+    actual_latest_week  = WEEKS[actuals_cutoff_week - 1] if actuals_cutoff_week > 0 else WEEKS[0]
+    actual_total        = int(_gt_vals[actuals_cutoff_week - 1]) if actuals_cutoff_week > 0 else _gt_w1
+    actual_pct          = actual_total / _hc * 100
+    post_actual_values  = {week: int(_gt_vals[WEEKS.index(week)]) for week in WEEKS[actuals_cutoff_week:]}
+    highest_future_week  = max(post_actual_values, key=post_actual_values.get) if post_actual_values else WEEKS[-1]
+    highest_future_value = post_actual_values.get(highest_future_week, 0)
+    lowest_future_week   = min(post_actual_values, key=post_actual_values.get) if post_actual_values else WEEKS[-1]
+    lowest_future_value  = post_actual_values.get(lowest_future_week, 0)
 
-    # Build paragraphs based on tone
+    # Per-center values at actuals cutoff and at Wk 13
+    def _cv(center, week):
+        row = _work[_work["Center"] == center]
+        return int(row[week].values[0]) if not row.empty else 0
+
+    actual_series = {c: _cv(c, actual_latest_week) for c in CENTERS}
+    w1_series_all = {c: _cv(c, WEEKS[0])            for c in CENTERS}
+    w13_series    = {c: _cv(c, WEEKS[-1])            for c in CENTERS}
+
+    actual_top_center  = max(actual_series, key=actual_series.get)
+    actual_top_value   = actual_series[actual_top_center]
+    actual_low_center  = min(actual_series, key=actual_series.get)
+    actual_low_value   = actual_series[actual_low_center]
+
+    # Top-3 centers by Wk 13 value
+    _sorted_w13   = sorted(w13_series, key=w13_series.get, reverse=True)
+    _top3         = _sorted_w13[:3]
+    # Center with biggest absolute reduction from Wk01 → actuals cutoff (improving)
+    _improving    = sorted(CENTERS, key=lambda c: w1_series_all[c] - actual_series[c], reverse=True)
+    _most_improved = _improving[0]
+    _mi_from      = w1_series_all[_most_improved]
+    _mi_to        = actual_series[_most_improved]
+
+    # Peak week between actuals and Wk 13 for each center
+    def _center_peak(center):
+        vals = {w: _cv(center, w) for w in WEEKS[actuals_cutoff_week:]}
+        if not vals: return actual_latest_week, _cv(center, actual_latest_week)
+        pk_wk = max(vals, key=vals.get)
+        return pk_wk, vals[pk_wk]
+
+    # Bench % at peak week
+    _peak_pct     = _peak_val / _hc * 100
+    _actual_pct_s = f"{actual_pct:.1f}%"
+    _w13_pct_s    = f"{_w13_pct:.1f}%"
+    _w1_pct_s     = f"{_w1_pct:.1f}%"
+    _peak_pct_s   = f"{_peak_pct:.1f}%"
+
+    # Step-up: biggest single-week jump in forecast
+    _fc_jumps = [(WEEKS[i], int(_gt_vals[i]) - int(_gt_vals[i-1])) for i in range(1, len(WEEKS))]
+    _biggest_jump_wk, _biggest_jump_val = max(_fc_jumps, key=lambda x: x[1])
+    _before_jump = int(_gt_vals[WEEKS.index(_biggest_jump_wk) - 1])
+    _after_jump  = int(_gt_vals[WEEKS.index(_biggest_jump_wk)])
+
+    forecast_end_total  = _gt_w13
+    forecast_delta      = forecast_end_total - actual_total
+    forecast_delta_color = GOOD if forecast_delta < 0 else WARN if forecast_delta > 0 else ACCENT
+    actual_avg_pct      = float(pd.Series(_gt_vals[:actuals_cutoff_week]).mean() / _hc * 100)
+
+    # Regenerate button — forces session state snapshot refresh
+    _regen_col, _ = st.columns([2, 6])
+    with _regen_col:
+        if st.button("🔄  Regenerate Summary", key="regen_summary"):
+            st.session_state["summary_snapshot"] = _work.copy()
+            st.rerun()
+
+    # Build paragraphs based on tone — all numbers from live computed variables
+    def _top3_hl():
+        return ", ".join(_hl(c, CENTER_COLORS.get(c, ACCENT)) for c in _top3)
+
     if tone == "Executive Summary":
         p_opening = (
             f"Please find below the {_hl(quarter_label)} bench update for {_hl(region_label)}. "
-            f"Through {_hl(actual_latest_week)}, actual bench levels increased from {_hl('142 FTEs', w1_color)} ({_hl('6.9%', w1_color)}) to "
-            f"{_hl('180 FTEs', _status_color(actual_pct, bench_target))} ({_hl('8.8%', _status_color(actual_pct, bench_target))}), "
-            f"primarily driven by growth in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}. This places current bench materially above the fixed {_hl('5.0%', ACCENT)} target."
+            f"Through {_hl(actual_latest_week)}, actual bench stands at "
+            f"{_hl(f'{actual_total} FTEs', _status_color(actual_pct, bench_target))} "
+            f"({_hl(_actual_pct_s, _status_color(actual_pct, bench_target))}), "
+            f"up from {_hl(f'{_gt_w1} FTEs', w1_color)} ({_hl(_w1_pct_s, w1_color)}) at {_hl(WEEKS[0])}, "
+            f"primarily driven by {_top3_hl()}. "
+            f"This places current bench materially above the fixed {_hl('5.0%', ACCENT)} target."
         )
         p_trend = (
-            f"Looking ahead, the forecast projects bench levels to remain elevated and increase further to {_hl('218 FTEs', w13_color)} ({_hl('11.1%', w13_color)}) by {_hl('Wk 13')}, "
-            f"peaking at {_hl('222 FTEs', WARN)} ({_hl('11.3%', WARN)}) in {_hl('Wk 11')} and {_hl('Wk 12')}. The most significant forecasted increase occurs in {_hl('Wk 10')}, "
-            f"when bench rises from {_hl('178', ACCENT)} to {_hl('212', WARN)} FTEs, driven mainly by increases in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))} and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}."
+            f"Looking ahead, the forecast projects bench to reach "
+            f"{_hl(f'{_gt_w13} FTEs', w13_color)} ({_hl(_w13_pct_s, w13_color)}) by {_hl(WEEKS[-1])}, "
+            f"peaking at {_hl(f'{_peak_val} FTEs', WARN)} ({_hl(_peak_pct_s, WARN)}) in {_hl(_peak_wk)}. "
+            f"The most significant step-up occurs in {_hl(_biggest_jump_wk)}, "
+            f"when bench rises from {_hl(str(_before_jump), ACCENT)} to {_hl(str(_after_jump), WARN)} FTEs, "
+            f"driven mainly by {_hl(_top3[0], CENTER_COLORS.get(_top3[0], ACCENT))} and "
+            f"{_hl(_top3[1], CENTER_COLORS.get(_top3[1], ACCENT))}."
         )
         p_centers = (
-            f"Center highlights show {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} improving from {_hl('54')} to {_hl('40')} FTEs through {_hl(actual_latest_week)}, before rebounding to {_hl('49', WARN)} from {_hl('Wk 10')} onward. "
-            f"{_hl('Buffalo', CENTER_COLORS.get('Buffalo', ACCENT))} remains stable between {_hl('3')} and {_hl('5')} FTEs, while {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))} continues to be the largest driver of network bench growth, "
-            f"moving from {_hl('25')} to {_hl('51')} actuals and peaking at {_hl('68', WARN)} in {_hl('Wk 11')}."
-        )
-        p_yoy = (
-            f"{_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))} and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))} also show sustained growth, increasing from {_hl('11')} to {_hl('25')} and {_hl('24')} to {_hl('33')} by {_hl(actual_latest_week)}, "
-            f"with forecasts reaching {_hl('33')} and {_hl('38')} by {_hl('Wk 13')}. {_hl('Lansing', CENTER_COLORS.get('Lansing', ACCENT))} and {_hl('Monroe', CENTER_COLORS.get('Monroe', ACCENT))} remain broadly stable across the period."
+            f"Center highlights: {_hl(_most_improved, CENTER_COLORS.get(_most_improved, ACCENT))} "
+            f"improved from {_hl(str(_mi_from))} to {_hl(str(_mi_to))} FTEs through {_hl(actual_latest_week)}. "
+            f"{_hl(actual_top_center, CENTER_COLORS.get(actual_top_center, ACCENT))} remains the largest contributor "
+            f"at {_hl(str(actual_top_value), WARN)} FTEs, "
+            f"while {_hl(actual_low_center, CENTER_COLORS.get(actual_low_center, ACCENT))} is the smallest "
+            f"at {_hl(str(actual_low_value))} FTEs."
         )
         p_action = (
-            f"Overall, the forecast indicates sustained excess capacity through the end of the quarter, with bench percentages remaining {_hl('above 10%', DANGER)} from {_hl('Wk 10')} onward versus a fixed {_hl('5.0%', ACCENT)} target. "
-            f"Key focus areas should remain {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}, "
-            f"which account for the majority of forecasted bench exposure and should remain the primary redeployment and mitigation priorities."
+            f"Overall, bench percentages are projected to remain above "
+            f"{_hl(_peak_pct_s, DANGER)} through {_hl(_peak_wk)} versus a fixed {_hl('5.0%', ACCENT)} target. "
+            f"Key focus areas: {_top3_hl()}, which account for the majority of forecasted bench exposure "
+            f"and should be the primary redeployment and mitigation priorities."
         )
-        paragraphs = [p_opening, p_trend, p_centers, p_yoy, p_action]
+        paragraphs = [p_opening, p_trend, p_centers, p_action]
 
     elif tone == "Detailed":
         p_opening = (
-            f"Team, please find the detailed {_hl(quarter_label)} bench update for {_hl(region_label)}. Through {_hl(actual_latest_week)}, actual bench increased from {_hl('142 FTEs', w1_color)} "
-            f"({_hl('6.9%', w1_color)}) in {_hl('Wk 01')} to {_hl('180 FTEs', _status_color(actual_pct, bench_target))} ({_hl('8.8%', _status_color(actual_pct, bench_target))}) in {_hl(actual_latest_week)}, versus a fixed {_hl('5.0%', ACCENT)} target."
+            f"Team, please find the detailed {_hl(quarter_label)} bench update for {_hl(region_label)}. "
+            f"Through {_hl(actual_latest_week)}, actual bench increased from "
+            f"{_hl(f'{_gt_w1} FTEs', w1_color)} ({_hl(_w1_pct_s, w1_color)}) in {_hl(WEEKS[0])} to "
+            f"{_hl(f'{actual_total} FTEs', _status_color(actual_pct, bench_target))} "
+            f"({_hl(_actual_pct_s, _status_color(actual_pct, bench_target))}) in {_hl(actual_latest_week)}, "
+            f"versus a fixed {_hl('5.0%', ACCENT)} target."
         )
         p_snapshot = (
-            f"<b>Current Snapshot ({_hl(actual_latest_week)}):</b> Bench growth has been concentrated in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}, "
-            f"while {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} improved over the same period from {_hl('54')} to {_hl('40')} FTEs."
+            f"<b>Current Snapshot ({_hl(actual_latest_week)}):</b> "
+            f"Bench growth has been concentrated in {_top3_hl()}, "
+            f"while {_hl(_most_improved, CENTER_COLORS.get(_most_improved, ACCENT))} improved "
+            f"from {_hl(str(_mi_from))} to {_hl(str(_mi_to))} FTEs over the same period."
         )
         p_trend = (
-            f"<b>Actual-to-Forecast View:</b> The forecast remains elevated after {_hl(actual_latest_week)}, ending at {_hl('218 FTEs', w13_color)} ({_hl('11.1%', w13_color)}) in {_hl('Wk 13')} and peaking at {_hl('222 FTEs', WARN)} ({_hl('11.3%', WARN)}) in {_hl('Wk 11')} and {_hl('Wk 12')}. "
-            f"The most significant jump occurs in {_hl('Wk 10')}, when total bench rises from {_hl('178')} to {_hl('212', WARN)} FTEs, driven primarily by {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))} and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}."
+            f"<b>Actual-to-Forecast View:</b> The forecast remains elevated after {_hl(actual_latest_week)}, "
+            f"ending at {_hl(f'{_gt_w13} FTEs', w13_color)} ({_hl(_w13_pct_s, w13_color)}) in {_hl(WEEKS[-1])} "
+            f"and peaking at {_hl(f'{_peak_val} FTEs', WARN)} ({_hl(_peak_pct_s, WARN)}) in {_hl(_peak_wk)}. "
+            f"The most significant jump occurs in {_hl(_biggest_jump_wk)}, when total bench rises from "
+            f"{_hl(str(_before_jump))} to {_hl(str(_after_jump), WARN)} FTEs, driven primarily by "
+            f"{_hl(_top3[0], CENTER_COLORS.get(_top3[0], ACCENT))} and "
+            f"{_hl(_top3[1], CENTER_COLORS.get(_top3[1], ACCENT))}."
         )
-        p_centers = (
-            f"<b>Center Highlights:</b> Baton Rouge improves to {_hl('40')} by {_hl(actual_latest_week)} before rebounding to {_hl('49', WARN)} from {_hl('Wk 10')} onward; Buffalo stays in a narrow {_hl('3-5')} range; Calgary rises from {_hl('11')} to {_hl('25')} actuals and reaches {_hl('33')} by {_hl('Wk 13')}; "
-            f"Halifax climbs from {_hl('25')} to {_hl('51')} by {_hl(actual_latest_week)} and peaks at {_hl('68', WARN)}; Lansing remains in the {_hl('16-18')} range; Monroe stays broadly flat between {_hl('10')} and {_hl('14')}; Quebec grows steadily from {_hl('24')} to {_hl('33')} and is projected to reach {_hl('38')} by {_hl('Wk 13')}."
-        )
+        _center_lines = []
+        for c in CENTERS:
+            _c_w1  = w1_series_all[c]
+            _c_act = actual_series[c]
+            _c_w13 = w13_series[c]
+            _c_pk_wk, _c_pk_val = _center_peak(c)
+            _c_col = CENTER_COLORS.get(c, ACCENT)
+            _c_trend = "↑" if _c_w13 > _c_act else "↓" if _c_w13 < _c_act else "→"
+            _center_lines.append(
+                f"{_hl(c, _c_col)}: {_c_w1}→{_c_act} (actuals), peaks {_hl(str(_c_pk_val), WARN)} in {_c_pk_wk}, ends {_hl(str(_c_w13))} {_c_trend}"
+            )
+        p_centers = f"<b>Center Highlights:</b> " + "; ".join(_center_lines) + "."
         p_yoy = (
-            f"<b>Capacity Outlook:</b> Bench percentages remain above {_hl('10%', DANGER)} from {_hl('Wk 10')} onward, well above the fixed {_hl('5.0%', ACCENT)} target and indicating sustained excess capacity through the end of the period. "
-            f"This reinforces the need to prioritize redeployment actions in {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}."
+            f"<b>Capacity Outlook:</b> Bench percentages peak at "
+            f"{_hl(_peak_pct_s, DANGER)} in {_hl(_peak_wk)}, well above the fixed "
+            f"{_hl('5.0%', ACCENT)} target, indicating sustained excess capacity through quarter-end. "
+            f"This reinforces the need to prioritize redeployment in {_top3_hl()}."
         )
         p_action = (
-            f"<b>Recommended Actions:</b> Continue active mitigation on the largest forecast contributors, with primary focus on {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))}. "
-            f"Secondary monitoring should remain on {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}, which continues to trend upward through quarter-end."
+            f"<b>Recommended Actions:</b> Continue active mitigation on the largest forecast contributors — "
+            f"primary focus on {_top3_hl()}. "
+            f"Secondary monitoring on remaining centers trending upward through quarter-end."
         )
         paragraphs = [p_opening, p_snapshot, p_trend, p_centers, p_yoy, p_action]
 
     else:  # Professional (default)
         p_opening = (
-            f"Please find the {_hl(quarter_label)} bench update for {_hl(region_label)}. Through {_hl(actual_latest_week)}, actual bench increased from {_hl('142 FTEs', w1_color)} ({_hl('6.9%', w1_color)}) to "
-            f"{_hl('180 FTEs', _status_color(actual_pct, bench_target))} ({_hl('8.8%', _status_color(actual_pct, bench_target))}), against a fixed {_hl('5.0%', ACCENT)} target."
+            f"Please find the {_hl(quarter_label)} bench update for {_hl(region_label)}. "
+            f"Through {_hl(actual_latest_week)}, actual bench increased from "
+            f"{_hl(f'{_gt_w1} FTEs', w1_color)} ({_hl(_w1_pct_s, w1_color)}) to "
+            f"{_hl(f'{actual_total} FTEs', _status_color(actual_pct, bench_target))} "
+            f"({_hl(_actual_pct_s, _status_color(actual_pct, bench_target))}), "
+            f"against a fixed {_hl('5.0%', ACCENT)} target."
         )
         p_trend = (
-            f"The forecast remains elevated for the balance of the quarter, reaching {_hl('218 FTEs', w13_color)} ({_hl('11.1%', w13_color)}) by {_hl('Wk 13')} and peaking at {_hl('222 FTEs', WARN)} ({_hl('11.3%', WARN)}) in {_hl('Wk 11')} and {_hl('Wk 12')}. "
-            f"The sharpest step-up occurs in {_hl('Wk 10')}, when bench increases from {_hl('178')} to {_hl('212', WARN)} FTEs."
+            f"The forecast remains elevated for the balance of the quarter, reaching "
+            f"{_hl(f'{_gt_w13} FTEs', w13_color)} ({_hl(_w13_pct_s, w13_color)}) by {_hl(WEEKS[-1])} "
+            f"and peaking at {_hl(f'{_peak_val} FTEs', WARN)} ({_hl(_peak_pct_s, WARN)}) in {_hl(_peak_wk)}. "
+            f"The sharpest step-up occurs in {_hl(_biggest_jump_wk)}, "
+            f"when bench increases from {_hl(str(_before_jump))} to {_hl(str(_after_jump), WARN)} FTEs."
         )
         p_centers = (
-            f"The main drivers of growth continue to be {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Quebec', CENTER_COLORS.get('Quebec', ACCENT))}, while {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} improves through {_hl(actual_latest_week)} but rebounds in forecast from {_hl('Wk 10')} onward."
+            f"The main drivers of bench are {_top3_hl()}, "
+            f"while {_hl(_most_improved, CENTER_COLORS.get(_most_improved, ACCENT))} "
+            f"improved from {_hl(str(_mi_from))} to {_hl(str(_mi_to))} FTEs through {_hl(actual_latest_week)} "
+            f"but may rebound in the forecast period."
         )
         p_yoy = (
-            f"Bench exposure is expected to remain {_hl('above 10%', DANGER)} from {_hl('Wk 10')} onward, materially above the fixed {_hl('5.0%', ACCENT)} target and indicative of sustained excess capacity through quarter-end."
+            f"Bench exposure is projected to peak at {_hl(_peak_pct_s, DANGER)} in {_hl(_peak_wk)}, "
+            f"materially above the fixed {_hl('5.0%', ACCENT)} target and indicative of sustained excess capacity through quarter-end."
         )
         p_action = (
-            f"Focus should remain on {_hl('Halifax', CENTER_COLORS.get('Halifax', ACCENT))}, {_hl('Calgary', CENTER_COLORS.get('Calgary', ACCENT))}, and {_hl('Baton Rouge', CENTER_COLORS.get('Baton Rouge', ACCENT))} as the primary mitigation priorities."
+            f"Focus should remain on {_top3_hl()} as the primary mitigation priorities."
         )
         paragraphs = [p_opening, p_trend, p_centers, p_yoy, p_action]
 
