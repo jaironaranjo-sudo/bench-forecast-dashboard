@@ -676,75 +676,20 @@ def load_historic() -> pd.DataFrame:
 
 @st.cache_data(ttl=60)
 def load_q3_comparison() -> pd.DataFrame:
-    """Load Q3 comparison data.
-    - Q3 26 Forecast: computed live from the Bench Forecast sheet (always current).
-    - Q3 25 bench + Q3 Original Forecast: read from the Q3 2025 sheet pivot (historical, fixed).
+    """Read all three Q3 series directly from the fixed pivot block
+    in the Q3 2025 sheet: header at row 36 (0-indexed), data rows 37–49,
+    columns A=Week, B=Q3 26 Forecast, C=Q3 25 bench, D=Q3 Original Forecast.
+    You update this block manually each week — the dashboard reads it as-is.
     """
-    WEEKS_LOCAL = [f"Wk {i:02d}" for i in range(1, 14)]
-    CENTERS_LOCAL = ["Baton Rouge", "Buffalo", "Calgary", "Halifax", "Lansing", "Monroe", "Quebec"]
-
-    # ── Q3 26 Forecast: derive from live Bench Forecast sheet ─────────────────
-    try:
-        fc = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
-        fc.columns = ["Center"] + WEEKS_LOCAL + (list(fc.columns[14:]) if len(fc.columns) > 14 else [])
-        fc = fc[fc["Center"].isin(CENTERS_LOCAL)].reset_index(drop=True)
-        for w in WEEKS_LOCAL:
-            fc[w] = pd.to_numeric(fc[w], errors="coerce").fillna(0).astype(int)
-        q3_26_forecast = fc[WEEKS_LOCAL].sum(axis=0).tolist()
-    except Exception:
-        q3_26_forecast = [None] * 13
-
-    # ── Q3 25 bench + Q3 Original Forecast: read from Q3 2025 pivot ───────────
-    q3_25_bench     = [None] * 13
-    q3_orig_fc      = [None] * 13
-    week_labels     = WEEKS_LOCAL
-
-    try:
-        raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
-        # Find pivot header row
-        header_row = None
-        for i, row in raw.iterrows():
-            cell = str(row.iloc[0]).strip()
-            if cell.lower().startswith("week") and any(
-                str(row.iloc[j]).strip() in ("Q3 25 bench", "Q3 Original Forecast")
-                for j in range(1, 6)
-            ):
-                header_row = i
-                break
-
-        if header_row is not None:
-            hdr = raw.iloc[header_row]
-            col_map = {}
-            for j in range(1, min(6, len(hdr))):
-                name = str(hdr.iloc[j]).strip()
-                if name in ("Q3 25 bench", "Q3 Original Forecast"):
-                    col_map[j] = name
-            parsed_labels = []
-            bench_vals, orig_vals = [], []
-            for i in range(header_row + 1, len(raw)):
-                row = raw.iloc[i]
-                wk = str(row.iloc[0]).strip()
-                if not wk or wk == "nan":
-                    break
-                parsed_labels.append(wk)
-                for j, name in col_map.items():
-                    v = pd.to_numeric(row.iloc[j], errors="coerce")
-                    if name == "Q3 25 bench":
-                        bench_vals.append(v)
-                    else:
-                        orig_vals.append(v)
-            if parsed_labels:
-                week_labels   = parsed_labels
-                q3_25_bench   = bench_vals  if bench_vals  else [None] * len(week_labels)
-                q3_orig_fc    = orig_vals   if orig_vals   else [None] * len(week_labels)
-    except Exception:
-        pass
-
-    return pd.DataFrame({
-        "Q3 26 Forecast":       q3_26_forecast,
-        "Q3 25 bench":          q3_25_bench,
-        "Q3 Original Forecast": q3_orig_fc,
-    }, index=week_labels)
+    raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
+    # Row 36 (0-indexed) is the header; rows 37-49 are the 13 data rows
+    block = raw.iloc[36:50, 0:4].copy()
+    block.columns = ["Week", "Q3 26 Forecast", "Q3 25 bench", "Q3 Original Forecast"]
+    block["Week"] = block["Week"].astype(str).str.strip()
+    block = block[block["Week"].str.match(r"Wk\s*\d+", na=False)].reset_index(drop=True)
+    for col in ["Q3 26 Forecast", "Q3 25 bench", "Q3 Original Forecast"]:
+        block[col] = pd.to_numeric(block[col], errors="coerce")
+    return block.set_index("Week")
 
 
 @st.cache_data(ttl=60)
