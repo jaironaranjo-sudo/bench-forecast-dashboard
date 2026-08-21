@@ -1114,6 +1114,12 @@ with tab1:
 with tab2:
     st.markdown(f'<div class="sec-title">All Centers . NA FNC Total overlay</div>', unsafe_allow_html=True)
 
+    _rc1, _rc2 = st.columns([8, 1])
+    with _rc2:
+        if st.button("🔄 Reload data", key="reload_historic"):
+            st.cache_data.clear()
+            st.rerun()
+
     df_hist = load_historic()
     years_avail    = sorted(df_hist["Year"].unique())
     quarters_avail = sorted(df_hist["Quarter"].unique())
