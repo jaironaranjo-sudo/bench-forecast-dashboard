@@ -1805,10 +1805,13 @@ with tab4:
         )
 
     # -- Chart 1: Q3 Comparison - 3-line chart (matplotlib PNG) -----------
+    def _to_num_list(series):
+        return pd.to_numeric(series, errors="coerce").tolist()
+
     q3_series = {
-        "Q3 26 Forecast":   (list(_q3["Q3 26 Forecast"])       if not _q3.empty else []),
-        "Q3 25 Bench":      (list(_q3["Q3 25 bench"])           if not _q3.empty else []),
-        "Q3 Orig Forecast": (list(_q3["Q3 Original Forecast"])  if not _q3.empty else []),
+        "Q3 26 Forecast":   (_to_num_list(_q3["Q3 26 Forecast"])      if not _q3.empty and "Q3 26 Forecast"      in _q3.columns else []),
+        "Q3 25 Bench":      (_to_num_list(_q3["Q3 25 bench"])          if not _q3.empty and "Q3 25 bench"         in _q3.columns else []),
+        "Q3 Orig Forecast": (_to_num_list(_q3["Q3 Original Forecast"]) if not _q3.empty and "Q3 Original Forecast" in _q3.columns else []),
     }
     q3_wk_labels = list(_q3.index) if not _q3.empty else WEEKS
 
@@ -1823,6 +1826,8 @@ with tab4:
             ax1.plot(q3_wk_labels, vals, color=col, linewidth=2.2, linestyle=ls,
                      marker="o", markersize=5, label=name)
             for i, v in enumerate(vals):
+                if v is None or (isinstance(v, float) and pd.isna(v)):
+                    continue
                 ax1.annotate(str(int(v)), (q3_wk_labels[i], v),
                              textcoords="offset points", xytext=(0, 7),
                              ha="center", fontsize=7, color=col, fontweight="bold")
@@ -1882,6 +1887,8 @@ with tab4:
         ax2.plot(x_pos, hb_totals, color=_hb_line_col, linewidth=2.2,
                  marker="o", markersize=4, label="NA FNC Total", zorder=5)
         for i, v in enumerate(hb_totals):
+            if v is None or (isinstance(v, float) and pd.isna(v)):
+                continue
             if n_hb <= 16 or i % 2 == 0:
                 ax2.annotate(str(int(v)), (i, v),
                              textcoords="offset points", xytext=(0, 6),
