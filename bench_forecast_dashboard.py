@@ -70,6 +70,7 @@ TBL_TOTAL_FG    = "#ffffff"
 XLSX_PATH      = Path(__file__).parent / "NA Bench Forecast.xlsx"
 LOGO_PATH      = Path(__file__).parent / "IBM LOGO.png"
 OVERRIDES_PATH = Path(__file__).parent / "bench_overrides.json"
+AUDIT_LOG_PATH = Path(__file__).parent / "bench_audit_log.csv"
 CENTERS   = ["Baton Rouge", "Buffalo", "Calgary", "Halifax", "Lansing", "Monroe", "Quebec"]
 WEEKS     = [f"Wk {i:02d}" for i in range(1, 14)]
 
@@ -104,9 +105,32 @@ def _get_password():  # -> str | None
 
 _required_pw = _get_password()
 
+
+def audit_log(action: str, user: str, df: pd.DataFrame | None = None) -> None:
+    """Append a row to the CSV audit log."""
+    import csv
+    from datetime import datetime, timezone
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    summary = ""
+    if df is not None:
+        parts = []
+        for _, row in df[df["Center"].isin(CENTERS)].iterrows():
+            total = sum(int(row[w]) for w in WEEKS if w in row)
+            parts.append(f"{row['Center']}:{total}")
+        summary = "; ".join(parts)
+    file_exists = AUDIT_LOG_PATH.exists()
+    with open(AUDIT_LOG_PATH, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["timestamp", "action", "user", "summary"])
+        writer.writerow([timestamp, action, user, summary])
+
+
 if _required_pw:
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
+    if "bench_user" not in st.session_state:
+        st.session_state.bench_user = "unknown"
 
     if not st.session_state.authenticated:
         st.markdown(f"""
@@ -140,6 +164,10 @@ if _required_pw:
         </div>
         """, unsafe_allow_html=True)
 
+        name_input = st.text_input(
+            "Your name", placeholder="Enter your name...",
+            label_visibility="collapsed",
+        )
         pw_input = st.text_input(
             "Access code", type="password", placeholder="Enter access code...",
             label_visibility="collapsed",
@@ -148,7 +176,10 @@ if _required_pw:
         with col_btn:
             if st.button("Unlock", use_container_width=True):
                 if pw_input == _required_pw:
+                    user_label = name_input.strip() or "unknown"
                     st.session_state.authenticated = True
+                    st.session_state.bench_user = user_label
+                    audit_log("login", user_label)
                     st.rerun()
                 else:
                     st.error("Incorrect access code.")
@@ -543,28 +574,76 @@ def load_bench_forecast() -> pd.DataFrame:
 
 
 def load_overrides() -> pd.DataFrame | None:
-    """Load persisted user edits from JSON, or return None if none exist."""
-    if not OVERRIDES_PATH.exists():
-        return None
+    """Load persisted user edits from the Excel file (Bench Forecast sheet).
+    Falls back to the legacy JSON file if present, then returns None."""
+    # Primary: read edits stored back in the Excel workbook
     try:
-        import json
-        with open(OVERRIDES_PATH, "r") as f:
-            data = json.load(f)
-        df = pd.DataFrame(data)
-        df["Center"] = df["Center"].astype(str)
+        raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
+        raw.columns = ["Center"] + WEEKS + (list(raw.columns[14:]) if len(raw.columns) > 14 else [])
+        raw = raw[raw["Center"].isin(CENTERS)].reset_index(drop=True)
         for w in WEEKS:
-            if w in df.columns:
-                df[w] = pd.to_numeric(df[w], errors="coerce").fillna(0).astype(int)
-        return df[["Center"] + WEEKS]
+            raw[w] = pd.to_numeric(raw[w], errors="coerce").fillna(0).astype(int)
+        result = raw[["Center"] + WEEKS]
+        if not result.empty:
+            return result
     except Exception:
-        return None
+        pass
+    # Legacy fallback: JSON file written by old save mechanism
+    if OVERRIDES_PATH.exists():
+        try:
+            import json
+            with open(OVERRIDES_PATH, "r") as f:
+                data = json.load(f)
+            df = pd.DataFrame(data)
+            df["Center"] = df["Center"].astype(str)
+            for w in WEEKS:
+                if w in df.columns:
+                    df[w] = pd.to_numeric(df[w], errors="coerce").fillna(0).astype(int)
+            return df[["Center"] + WEEKS]
+        except Exception:
+            pass
+    return None
 
 
-def save_overrides(df: pd.DataFrame) -> None:
-    """Persist the edited forecast DataFrame to JSON on disk."""
+def save_overrides(df: pd.DataFrame, changed_by: str = "unknown") -> None:
+    """Persist the edited forecast DataFrame back into the Excel workbook.
+    Writes only the center rows in the Bench Forecast sheet, leaving all other
+    rows (Grand Total, Bench %, HC, etc.) untouched."""
+    import openpyxl
+    wb = openpyxl.load_workbook(XLSX_PATH)
+    ws = wb["Bench Forecast"]
+
+    # Build a map of center name -> row number from the sheet
+    center_rows: dict[str, int] = {}
+    for row_idx, row in enumerate(ws.iter_rows(min_row=1), start=1):
+        cell_val = row[0].value
+        if cell_val in CENTERS:
+            center_rows[str(cell_val)] = row_idx
+
+    # Map week label -> column index (1-based); header is row 1
+    header = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 2)]
+    week_cols: dict[str, int] = {}
+    for col_idx, h in enumerate(header, start=1):
+        if h in WEEKS:
+            week_cols[str(h)] = col_idx
+
+    # Write updated values
+    for _, row in df[["Center"] + WEEKS].iterrows():
+        center = row["Center"]
+        if center not in center_rows:
+            continue
+        r = center_rows[center]
+        for w in WEEKS:
+            if w in week_cols:
+                ws.cell(row=r, column=week_cols[w]).value = int(row[w])
+
+    wb.save(XLSX_PATH)
+    # Also write JSON as secondary backup for portability
     import json
     with open(OVERRIDES_PATH, "w") as f:
         json.dump(df[["Center"] + WEEKS].to_dict(orient="records"), f, indent=2)
+    audit_log("save_forecast", changed_by, df)
+
 
 
 @st.cache_data
@@ -908,7 +987,7 @@ with tab1:
                             for c in CENTERS
                         ]
                         updated_df = pd.DataFrame(new_rows)
-                        save_overrides(updated_df)
+                        save_overrides(updated_df, changed_by=st.session_state.get("bench_user", "unknown"))
                         st.session_state["forecast_data"] = updated_df.copy()
                         st.success("Changes saved — they will persist across restarts.")
                         st.rerun()
