@@ -1073,20 +1073,15 @@ with tab2:
 
         # -- Chart ---------------------------------------------------------
         fig_hist = go.Figure()
-        actual_quarter_weeks = {f"3Q WK {i:02d}" for i in range(1, 7)}
 
         for center in sel_centers:
             if center not in df_f.columns:
                 continue
-            marker_colors = [
-                BENCH_ACTUAL_COLOR if row["QuarterWeek"] in actual_quarter_weeks else CENTER_COLORS.get(center, TEXT_SEC)
-                for _, row in df_f.iterrows()
-            ]
             fig_hist.add_trace(go.Bar(
                 name=center,
                 x=x_labels,
                 y=df_f[center].tolist(),
-                marker_color=marker_colors,
+                marker_color=CENTER_COLORS.get(center, TEXT_SEC),
                 marker_line_width=0,
                 hovertemplate=f"<b>{center}</b><br>%{{x}}: %{{y}}<extra></extra>",
             ))
