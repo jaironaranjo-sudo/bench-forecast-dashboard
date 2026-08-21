@@ -563,7 +563,7 @@ def styled_table(
 # -----------------------------------------------------------------------------
 # Data loaders
 # -----------------------------------------------------------------------------
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_bench_forecast() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
     raw.columns = ["Center"] + WEEKS + (list(raw.columns[14:]) if len(raw.columns) > 14 else [])
@@ -646,7 +646,7 @@ def save_overrides(df: pd.DataFrame, changed_by: str = "unknown") -> None:
 
 
 
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_historic() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Historic Bench Data", header=0)
     raw = raw.iloc[:, :12].copy()
@@ -669,7 +669,7 @@ def load_historic() -> pd.DataFrame:
     return raw
 
 
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_q3_comparison() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
     pivot_start = None
@@ -688,7 +688,7 @@ def load_q3_comparison() -> pd.DataFrame:
     return pd.DataFrame(rows, index=weeks)
 
 
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_q3_center_detail() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
     start = None
