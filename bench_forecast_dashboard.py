@@ -1232,15 +1232,19 @@ with tab3:
 
         # -- KPI strip -----------------------------------------------------
         if "Q3 26 Forecast" in df_q3.columns and "Q3 25 bench" in df_q3.columns:
+            def _safe_int(val, default=0):
+                v = pd.to_numeric(val, errors="coerce")
+                return int(v) if pd.notna(v) else default
+
             _v26 = pd.to_numeric(df_q3["Q3 26 Forecast"].iloc[-1], errors="coerce")
             _v25 = pd.to_numeric(df_q3["Q3 25 bench"].iloc[-1],    errors="coerce")
             delta_last = int(_v26 - _v25) if pd.notna(_v26) and pd.notna(_v25) else 0
             st.markdown("<br>", unsafe_allow_html=True)
             q1, q2, q3_col, q4 = st.columns(4)
-            q1.metric("Q3 26 Forecast peak",   f"{int(df_q3['Q3 26 Forecast'].max())}")
-            q2.metric("Q3 25 Bench trough",     f"{int(df_q3['Q3 25 bench'].min())}")
+            q1.metric("Q3 26 Forecast peak",    f"{_safe_int(df_q3['Q3 26 Forecast'].max())}")
+            q2.metric("Q3 25 Bench trough",      f"{_safe_int(df_q3['Q3 25 bench'].min())}")
             q3_col.metric("Wk 13 Delta (26 vs 25)", f"{delta_last:+d}")
-            q4.metric("Q3 Orig Forecast peak",  f"{int(df_q3['Q3 Original Forecast'].max())}")
+            q4.metric("Q3 Orig Forecast peak",   f"{_safe_int(df_q3['Q3 Original Forecast'].max()) if 'Q3 Original Forecast' in df_q3.columns else 'N/A'}")
             st.markdown("<br>", unsafe_allow_html=True)
 
         # -- Chart ---------------------------------------------------------
