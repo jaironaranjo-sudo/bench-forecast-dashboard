@@ -676,66 +676,75 @@ def load_historic() -> pd.DataFrame:
 
 @st.cache_data(ttl=60)
 def load_q3_comparison() -> pd.DataFrame:
-    """Load Q3 comparison data from the pivot table (rows with Week labels as index).
-    Primary: look for pivot table with 'Week' header and week rows like ' Wk 01'.
-    Fallback: look for 'Total Bench' block."""
-    raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
+    """Load Q3 comparison data.
+    - Q3 26 Forecast: computed live from the Bench Forecast sheet (always current).
+    - Q3 25 bench + Q3 Original Forecast: read from the Q3 2025 sheet pivot (historical, fixed).
+    """
+    WEEKS_LOCAL = [f"Wk {i:02d}" for i in range(1, 14)]
+    CENTERS_LOCAL = ["Baton Rouge", "Buffalo", "Calgary", "Halifax", "Lansing", "Monroe", "Quebec"]
 
-    # Primary: find the pivot table block starting with 'Week' + column labels
-    header_row = None
-    for i, row in raw.iterrows():
-        cell = str(row.iloc[0]).strip()
-        # The pivot header row has 'Week ' in col 0 and series names in cols 1-3
-        if cell.lower().startswith("week") and "Q3 26 Forecast" in [str(row.iloc[j]).strip() for j in range(1, 5)]:
-            header_row = i
-            break
+    # ── Q3 26 Forecast: derive from live Bench Forecast sheet ─────────────────
+    try:
+        fc = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
+        fc.columns = ["Center"] + WEEKS_LOCAL + (list(fc.columns[14:]) if len(fc.columns) > 14 else [])
+        fc = fc[fc["Center"].isin(CENTERS_LOCAL)].reset_index(drop=True)
+        for w in WEEKS_LOCAL:
+            fc[w] = pd.to_numeric(fc[w], errors="coerce").fillna(0).astype(int)
+        q3_26_forecast = fc[WEEKS_LOCAL].sum(axis=0).tolist()
+    except Exception:
+        q3_26_forecast = [None] * 13
 
-    if header_row is not None:
-        hdr = raw.iloc[header_row]
-        col_map = {}
-        for j in range(1, min(6, len(hdr))):
-            name = str(hdr.iloc[j]).strip()
-            if name and name != "nan":
-                col_map[j] = name
-        rows = {}
-        for j, name in col_map.items():
-            rows[name] = []
-        week_labels = []
-        for i in range(header_row + 1, len(raw)):
-            row = raw.iloc[i]
-            wk = str(row.iloc[0]).strip()
-            if not wk or wk == "nan":
+    # ── Q3 25 bench + Q3 Original Forecast: read from Q3 2025 pivot ───────────
+    q3_25_bench     = [None] * 13
+    q3_orig_fc      = [None] * 13
+    week_labels     = WEEKS_LOCAL
+
+    try:
+        raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
+        # Find pivot header row
+        header_row = None
+        for i, row in raw.iterrows():
+            cell = str(row.iloc[0]).strip()
+            if cell.lower().startswith("week") and any(
+                str(row.iloc[j]).strip() in ("Q3 25 bench", "Q3 Original Forecast")
+                for j in range(1, 6)
+            ):
+                header_row = i
                 break
-            week_labels.append(wk)
-            for j, name in col_map.items():
-                val = pd.to_numeric(row.iloc[j], errors="coerce")
-                rows[name].append(val)
-        # Only keep the three comparison series
-        keep = ["Q3 26 Forecast", "Q3 25 bench", "Q3 Original Forecast"]
-        result = {k: v for k, v in rows.items() if k in keep}
-        if result and week_labels:
-            return pd.DataFrame(result, index=week_labels)
 
-    # Fallback: old block-based approach
-    pivot_start = None
-    for i, row in raw.iterrows():
-        if str(row.iloc[0]).strip() == "Total Bench":
-            pivot_start = i
-            break
-    if pivot_start is None:
-        return pd.DataFrame()
-    weeks_row = raw.iloc[pivot_start]
-    weeks = [str(w).strip() for w in weeks_row.iloc[1:14].tolist()]
-    rows = {}
-    for offset in [1, 2, 3]:
-        r = raw.iloc[pivot_start + offset]
-        name = str(r.iloc[0]).strip()
-        vals = pd.to_numeric(r.iloc[1:14], errors="coerce").tolist()
-        if any(pd.notna(v) for v in vals):
-            rows[name] = vals
-    if not rows:
-        return pd.DataFrame()
-    return pd.DataFrame(rows, index=weeks)
+        if header_row is not None:
+            hdr = raw.iloc[header_row]
+            col_map = {}
+            for j in range(1, min(6, len(hdr))):
+                name = str(hdr.iloc[j]).strip()
+                if name in ("Q3 25 bench", "Q3 Original Forecast"):
+                    col_map[j] = name
+            parsed_labels = []
+            bench_vals, orig_vals = [], []
+            for i in range(header_row + 1, len(raw)):
+                row = raw.iloc[i]
+                wk = str(row.iloc[0]).strip()
+                if not wk or wk == "nan":
+                    break
+                parsed_labels.append(wk)
+                for j, name in col_map.items():
+                    v = pd.to_numeric(row.iloc[j], errors="coerce")
+                    if name == "Q3 25 bench":
+                        bench_vals.append(v)
+                    else:
+                        orig_vals.append(v)
+            if parsed_labels:
+                week_labels   = parsed_labels
+                q3_25_bench   = bench_vals  if bench_vals  else [None] * len(week_labels)
+                q3_orig_fc    = orig_vals   if orig_vals   else [None] * len(week_labels)
+    except Exception:
+        pass
+
+    return pd.DataFrame({
+        "Q3 26 Forecast":       q3_26_forecast,
+        "Q3 25 bench":          q3_25_bench,
+        "Q3 Original Forecast": q3_orig_fc,
+    }, index=week_labels)
 
 
 @st.cache_data(ttl=60)
