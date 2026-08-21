@@ -663,12 +663,12 @@ def load_historic() -> pd.DataFrame:
     raw["Week"] = raw["Week"].astype(str).str.strip()
     raw["Wk"] = raw["Wk"].astype(str).str.strip()
     center_cols = ["Baton Rouge", "East Lansing", "Monroe", "Buffalo", "Halifax", "Quebec", "Calgary"]
-    for col in center_cols + ["NA FNC"]:
+    for col in center_cols:
         raw[col] = pd.to_numeric(raw[col], errors="coerce").fillna(0)
-    # If NA FNC is missing/zero, derive it from the sum of center columns
-    raw["NA FNC"] = raw.apply(
-        lambda r: r[center_cols].sum() if r["NA FNC"] == 0 else r["NA FNC"], axis=1
-    )
+    # Always derive NA FNC from center sum — the column is largely unpopulated
+    raw["NA FNC"] = raw[center_cols].sum(axis=1)
+    # Drop rows where every center is 0 (no data entered for that week)
+    raw = raw[raw["NA FNC"] > 0].copy()
     raw["Label"] = raw["Year"].astype(str) + " " + raw["Quarter"] + " " + raw["Week"]
     raw["QuarterWeek"] = raw["Quarter"] + " " + raw["Week"]
     return raw
