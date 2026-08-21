@@ -1687,7 +1687,7 @@ with tab4:
         # KPI pills
         f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;">'
         f'<div style="background:{SURFACE2};border:1px solid {BORDER};border-radius:20px;padding:5px 14px;font-size:0.8rem;">'
-        f'&#128205; <b>{report_week}</b> bench: <span style="color:{w1_color};font-weight:700">{_gt_w1} ({_w1_pct:.1f}%)</span></div>'
+        f'&#128205; <b>{report_week}</b> bench: <span style="color:{w1_color};font-weight:700">{int(_gt_vals[WEEKS.index(report_week)]) if report_week in WEEKS else _gt_w1} ({(_gt_vals[WEEKS.index(report_week)]/_hc*100) if report_week in WEEKS else _w1_pct:.1f}%)</span></div>'
         f'<div style="background:{SURFACE2};border:1px solid {BORDER};border-radius:20px;padding:5px 14px;font-size:0.8rem;">'
         f'&#128200; Peak: <span style="color:{ACCENT};font-weight:700">{_peak_val} @ {_peak_wk}</span></div>'
         f'<div style="background:{SURFACE2};border:1px solid {BORDER};border-radius:20px;padding:5px 14px;font-size:0.8rem;">'
