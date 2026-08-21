@@ -1367,13 +1367,23 @@ with tab4:
     _low_center_v  = _w1_series[_low_center]
 
     # Q3 comparison data
+    def _q3_int(series, agg="first"):
+        """Safely extract an int from a Q3 series, returning 0 on NaN/empty."""
+        if series is None or len(series) == 0:
+            return 0
+        val = series.iloc[0] if agg == "first" else (series.max() if agg == "max" else series.min())
+        v = pd.to_numeric(val, errors="coerce")
+        return int(v) if pd.notna(v) else 0
+
     _q3 = load_q3_comparison()
-    _q3_fc_w1  = int(_q3["Q3 26 Forecast"].iloc[0])  if not _q3.empty else 0
-    _q3_ac_w1  = int(_q3["Q3 25 bench"].iloc[0])     if not _q3.empty else 0
+    _q3_fc_col = _q3["Q3 26 Forecast"] if not _q3.empty and "Q3 26 Forecast" in _q3.columns else None
+    _q3_ac_col = _q3["Q3 25 bench"]    if not _q3.empty and "Q3 25 bench"    in _q3.columns else None
+    _q3_fc_w1  = _q3_int(_q3_fc_col, "first")
+    _q3_ac_w1  = _q3_int(_q3_ac_col, "first")
     _q3_delta  = _q3_fc_w1 - _q3_ac_w1
     _q3_trend  = "above" if _q3_delta > 0 else "below" if _q3_delta < 0 else "in line with"
-    _q3_fc_pk  = int(_q3["Q3 26 Forecast"].max())    if not _q3.empty else 0
-    _q3_ac_trg = int(_q3["Q3 25 bench"].min())       if not _q3.empty else 0
+    _q3_fc_pk  = _q3_int(_q3_fc_col, "max")
+    _q3_ac_trg = _q3_int(_q3_ac_col, "min")
 
     # Historic data
     _hist = load_historic()
