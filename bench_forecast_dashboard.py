@@ -1232,7 +1232,9 @@ with tab3:
 
         # -- KPI strip -----------------------------------------------------
         if "Q3 26 Forecast" in df_q3.columns and "Q3 25 bench" in df_q3.columns:
-            delta_last = int(df_q3["Q3 26 Forecast"].iloc[-1] - df_q3["Q3 25 bench"].iloc[-1])
+            _v26 = pd.to_numeric(df_q3["Q3 26 Forecast"].iloc[-1], errors="coerce")
+            _v25 = pd.to_numeric(df_q3["Q3 25 bench"].iloc[-1],    errors="coerce")
+            delta_last = int(_v26 - _v25) if pd.notna(_v26) and pd.notna(_v25) else 0
             st.markdown("<br>", unsafe_allow_html=True)
             q1, q2, q3_col, q4 = st.columns(4)
             q1.metric("Q3 26 Forecast peak",   f"{int(df_q3['Q3 26 Forecast'].max())}")
@@ -2063,64 +2065,93 @@ function copyHTML() {{
 
 
 # =============================================================================
-# TAB 5 - Audit Log
+# TAB 5 - Audit Log  (admin password protected)
 # =============================================================================
+def _get_admin_password() -> str | None:
+    try:
+        return st.secrets["admin"]["password"]
+    except Exception:
+        return os.environ.get("ADMIN_PASSWORD")
+
 with tab5:
     st.markdown(f'<div class="sec-title">Access & Changes Audit Log</div>', unsafe_allow_html=True)
-    st.caption("Records every login and every forecast save, with the user name and a per-center summary of the saved values.")
 
-    if AUDIT_LOG_PATH.exists():
-        df_audit = pd.read_csv(AUDIT_LOG_PATH)
-        # Newest first
-        df_audit = df_audit.iloc[::-1].reset_index(drop=True)
+    _admin_pw = _get_admin_password()
 
-        # Download button
-        st.download_button(
-            label="⬇️  Download full log (.csv)",
-            data=df_audit.to_csv(index=False).encode("utf-8"),
-            file_name="bench_audit_log.csv",
-            mime="text/csv",
-            key="dl_audit_log",
-        )
+    # Gate behind admin password if one is configured
+    if _admin_pw:
+        if "audit_unlocked" not in st.session_state:
+            st.session_state["audit_unlocked"] = False
 
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # Colour-coded table: login = blue tint, save = green tint
-        rows_html = ""
-        for _, row in df_audit.iterrows():
-            action = str(row.get("action", ""))
-            bg = "#d0e2ff" if action == "login" else "#defbe6" if action == "save_forecast" else "#ffffff"
-            fg = "#0043ce" if action == "login" else "#0e6027" if action == "save_forecast" else TEXT_PRI
-            badge = (
-                f'<span style="background:{bg};color:{fg};border:1px solid {fg};'
-                f'border-radius:3px;padding:1px 6px;font-size:0.72rem;font-weight:700">{action}</span>'
+        if not st.session_state["audit_unlocked"]:
+            st.caption("This section is restricted to administrators.")
+            _ap_input = st.text_input(
+                "Admin password", type="password",
+                placeholder="Enter admin password...",
+                label_visibility="collapsed",
+                key="audit_pw_input",
             )
-            summary = str(row.get("summary", ""))
-            rows_html += (
-                f'<tr style="background:{bg}">'
-                f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_PRI};white-space:nowrap">{row.get("timestamp","")}</td>'
-                f'<td style="padding:5px 10px;border:1px solid {BORDER}">{badge}</td>'
-                f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_PRI};font-weight:600">{row.get("user","")}</td>'
-                f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_SEC};font-size:0.82rem">{summary}</td>'
-                f'</tr>'
+            if st.button("Unlock audit log", key="audit_unlock_btn"):
+                if _ap_input == _admin_pw:
+                    st.session_state["audit_unlocked"] = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect admin password.")
+
+    if not _admin_pw or st.session_state.get("audit_unlocked", False):
+        st.caption("Records every login and every forecast save, with the user name and a per-center summary of the saved values.")
+
+        if AUDIT_LOG_PATH.exists():
+            df_audit = pd.read_csv(AUDIT_LOG_PATH)
+            # Newest first
+            df_audit = df_audit.iloc[::-1].reset_index(drop=True)
+
+            st.download_button(
+                label="⬇️  Download full log (.csv)",
+                data=df_audit.to_csv(index=False).encode("utf-8"),
+                file_name="bench_audit_log.csv",
+                mime="text/csv",
+                key="dl_audit_log",
             )
 
-        table_html = f"""
-        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;font-family:Inter,system-ui,sans-serif">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Timestamp (UTC)</th>
-              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Action</th>
-              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">User</th>
-              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Summary</th>
-            </tr>
-          </thead>
-          <tbody>{rows_html}</tbody>
-        </table>
-        """
-        components.html(table_html, height=min(600, 60 + len(df_audit) * 38), scrolling=True)
-    else:
-        st.info("No audit log entries yet. Entries are recorded on every login and every forecast save.")
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Colour-coded table: login = blue tint, save = green tint
+            rows_html = ""
+            for _, row in df_audit.iterrows():
+                action = str(row.get("action", ""))
+                bg = "#d0e2ff" if action == "login" else "#defbe6" if action == "save_forecast" else "#ffffff"
+                fg = "#0043ce" if action == "login" else "#0e6027" if action == "save_forecast" else TEXT_PRI
+                badge = (
+                    f'<span style="background:{bg};color:{fg};border:1px solid {fg};'
+                    f'border-radius:3px;padding:1px 6px;font-size:0.72rem;font-weight:700">{action}</span>'
+                )
+                summary = str(row.get("summary", ""))
+                rows_html += (
+                    f'<tr style="background:{bg}">'
+                    f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_PRI};white-space:nowrap">{row.get("timestamp","")}</td>'
+                    f'<td style="padding:5px 10px;border:1px solid {BORDER}">{badge}</td>'
+                    f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_PRI};font-weight:600">{row.get("user","")}</td>'
+                    f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_SEC};font-size:0.82rem">{summary}</td>'
+                    f'</tr>'
+                )
+
+            table_html = f"""
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;font-family:Inter,system-ui,sans-serif">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Timestamp (UTC)</th>
+                  <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Action</th>
+                  <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">User</th>
+                  <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Summary</th>
+                </tr>
+              </thead>
+              <tbody>{rows_html}</tbody>
+            </table>
+            """
+            components.html(table_html, height=min(600, 60 + len(df_audit) * 38), scrolling=True)
+        else:
+            st.info("No audit log entries yet. Entries are recorded on every login and every forecast save.")
 
 
 # -----------------------------------------------------------------------------
