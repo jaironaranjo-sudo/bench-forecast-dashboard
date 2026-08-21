@@ -1341,10 +1341,16 @@ with tab4:
                 unsafe_allow_html=True)
     st.caption("All highlighted figures update automatically as you edit the forecast data.")
 
-    # -- Pull data from session state / already-computed values ------------
-    _fc   = load_bench_forecast()
-    _hc   = st.session_state.get("hc_input", 2013)
-    _work = st.session_state.get("forecast_data", _fc).copy()
+    # -- Pull data: prefer summary_snapshot (set by Regenerate button),
+    #    then session forecast_data, then reload fresh from Excel ----------
+    _hc = st.session_state.get("hc_input", 2013)
+    if "summary_snapshot" in st.session_state:
+        _work = st.session_state["summary_snapshot"].copy()
+    elif "forecast_data" in st.session_state:
+        _work = st.session_state["forecast_data"].copy()
+    else:
+        load_bench_forecast.clear()          # force bypass of ttl cache
+        _work = load_bench_forecast().copy()
 
     # Per-center totals over all weeks
     _gt_vals  = _work[WEEKS].sum(axis=0).tolist()          # grand total per week
@@ -1485,11 +1491,15 @@ with tab4:
     forecast_delta_color = GOOD if forecast_delta < 0 else WARN if forecast_delta > 0 else ACCENT
     actual_avg_pct      = float(pd.Series(_gt_vals[:actuals_cutoff_week]).mean() / _hc * 100)
 
-    # Regenerate button — forces session state snapshot refresh
+    # Regenerate button — clears stale snapshot, reloads fresh from Excel,
+    # updates session forecast_data and summary_snapshot, then reruns
     _regen_col, _ = st.columns([2, 6])
     with _regen_col:
         if st.button("🔄  Regenerate Summary", key="regen_summary"):
-            st.session_state["summary_snapshot"] = _work.copy()
+            load_bench_forecast.clear()      # bust the ttl cache
+            _fresh = load_bench_forecast()
+            st.session_state["forecast_data"]   = _fresh.copy()
+            st.session_state["summary_snapshot"] = _fresh.copy()
             st.rerun()
 
     # Build paragraphs based on tone — all numbers from live computed variables
