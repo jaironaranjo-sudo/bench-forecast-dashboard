@@ -561,7 +561,7 @@ def styled_table(
 
 
 # -----------------------------------------------------------------------------
-# Data loaders
+# Data loaders  (ttl=60 — re-reads Excel every 60 s)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=60)
 def load_bench_forecast() -> pd.DataFrame:
