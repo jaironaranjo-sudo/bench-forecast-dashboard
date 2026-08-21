@@ -1258,15 +1258,16 @@ with tab3:
 
         for col in df_q3.columns:
             cfg = series_cfg.get(col, dict(color=TEXT_SEC, dash="solid", width=1.5, symbol="circle", size=6))
+            col_vals = pd.to_numeric(df_q3[col], errors="coerce")
             fig_q3.add_trace(go.Scatter(
                 name=col,
                 x=df_q3.index.tolist(),
-                y=df_q3[col].tolist(),
+                y=col_vals.tolist(),
                 mode="lines+markers+text",
                 line=dict(color=cfg["color"], width=cfg["width"], dash=cfg["dash"]),
                 marker=dict(size=cfg["size"], color=cfg["color"], symbol=cfg["symbol"],
                             line=dict(color=SURFACE, width=1.5)),
-                text=[str(int(v)) for v in df_q3[col].tolist()],
+                text=[str(int(v)) if pd.notna(v) else "" for v in col_vals],
                 textposition="top center",
                 textfont=dict(color=cfg["color"], size=10, family="Inter, system-ui"),
                 hovertemplate=f"<b>{col}</b><br>%{{x}}: %{{y}} heads<extra></extra>",
