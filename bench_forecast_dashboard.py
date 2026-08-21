@@ -715,11 +715,12 @@ def load_q3_center_detail() -> pd.DataFrame:
 # -----------------------------------------------------------------------------
 # Tabs
 # -----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "\U0001f4cb  Bench Forecast",
     "\U0001f4c8  Historic Bench",
     "\U0001f4ca  Q3 Comparison",
     "\U0001f4e7  Executive Summary",
+    "\U0001f4cb  Audit Log",
 ])
 
 
@@ -2059,6 +2060,67 @@ function copyHTML() {{
             )
         st.caption("Double-click the downloaded .eml file to open it in Outlook as a ready-to-send draft.")
         components.html(report_component, height=2200, scrolling=True)
+
+
+# =============================================================================
+# TAB 5 - Audit Log
+# =============================================================================
+with tab5:
+    st.markdown(f'<div class="sec-title">Access & Changes Audit Log</div>', unsafe_allow_html=True)
+    st.caption("Records every login and every forecast save, with the user name and a per-center summary of the saved values.")
+
+    if AUDIT_LOG_PATH.exists():
+        df_audit = pd.read_csv(AUDIT_LOG_PATH)
+        # Newest first
+        df_audit = df_audit.iloc[::-1].reset_index(drop=True)
+
+        # Download button
+        st.download_button(
+            label="⬇️  Download full log (.csv)",
+            data=df_audit.to_csv(index=False).encode("utf-8"),
+            file_name="bench_audit_log.csv",
+            mime="text/csv",
+            key="dl_audit_log",
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Colour-coded table: login = blue tint, save = green tint
+        rows_html = ""
+        for _, row in df_audit.iterrows():
+            action = str(row.get("action", ""))
+            bg = "#d0e2ff" if action == "login" else "#defbe6" if action == "save_forecast" else "#ffffff"
+            fg = "#0043ce" if action == "login" else "#0e6027" if action == "save_forecast" else TEXT_PRI
+            badge = (
+                f'<span style="background:{bg};color:{fg};border:1px solid {fg};'
+                f'border-radius:3px;padding:1px 6px;font-size:0.72rem;font-weight:700">{action}</span>'
+            )
+            summary = str(row.get("summary", ""))
+            rows_html += (
+                f'<tr style="background:{bg}">'
+                f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_PRI};white-space:nowrap">{row.get("timestamp","")}</td>'
+                f'<td style="padding:5px 10px;border:1px solid {BORDER}">{badge}</td>'
+                f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_PRI};font-weight:600">{row.get("user","")}</td>'
+                f'<td style="padding:5px 10px;border:1px solid {BORDER};color:{TEXT_SEC};font-size:0.82rem">{summary}</td>'
+                f'</tr>'
+            )
+
+        table_html = f"""
+        <table style="width:100%;border-collapse:collapse;font-size:0.85rem;font-family:Inter,system-ui,sans-serif">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Timestamp (UTC)</th>
+              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Action</th>
+              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">User</th>
+              <th style="text-align:left;padding:6px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};border:1px solid {BORDER}">Summary</th>
+            </tr>
+          </thead>
+          <tbody>{rows_html}</tbody>
+        </table>
+        """
+        components.html(table_html, height=min(600, 60 + len(df_audit) * 38), scrolling=True)
+    else:
+        st.info("No audit log entries yet. Entries are recorded on every login and every forecast save.")
 
 
 # -----------------------------------------------------------------------------
