@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# OS
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Secrets — NEVER bake into image; inject at runtime via Code Engine secret mount
+.streamlit/secrets.toml
+
+# Dev/local-only files
+*.sh
+*.command
+*.docx
+
+# Audit log (runtime file — should not be baked in)
+bench_audit_log.csv
