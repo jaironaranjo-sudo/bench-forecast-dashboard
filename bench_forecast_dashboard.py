@@ -3,7 +3,7 @@ NA Bench Forecast Dashboard
 Streamlit dashboard replicating three Excel sheets:
   1. Bench Forecast  - editable table (per-center weekly values)
   2. Historic Bench Data - stacked bar chart by center with NA FNC line overlay
-  3. Q3 2025 tab - Q3 26 Forecast vs Q3 25 Bench vs Q3 Original Forecast line chart
+  3. Q4 2025 tab - Q4 26 Forecast vs Q4 25 Bench vs Q4 Original Forecast line chart
 """
 
 import base64
@@ -42,7 +42,7 @@ CENTER_COLORS = {
 }
 BENCH_ACTUAL_COLOR = "#8d8d8d"
 
-# Q3 comparison series
+# Q4 comparison series
 C_FORECAST   = "#0f62fe"   # IBM Blue 60
 C_ACTUAL     = "#198038"   # IBM Green 60
 C_ORIG       = "#6f6f6f"   # IBM Gray 50
@@ -207,7 +207,7 @@ except Exception:
 # DEFAULT:  hard-coded value below   →  safe default when neither is set
 # Advance by 1 each week as new actuals are uploaded to the Excel file.
 # -----------------------------------------------------------------------------
-_ACTUALS_DEFAULT = 7   # ← update this if no Secrets / env var is configured
+_ACTUALS_DEFAULT = 0   # ← update this if no Secrets / env var is configured
 
 try:
     ACTUALS_CUTOFF = int(st.secrets["forecast"]["actuals_through"])
@@ -454,15 +454,15 @@ st.markdown(f"""
         <div class="dash-hero-ibm" aria-label="IBM logo">
             <img src="{IBM_LOGO_DATA_URI}" alt="IBM logo" />
         </div>
-        <div class="badge">Q3 2026 Active</div>
+        <div class="badge">Q4 2026 Active</div>
     </div>
     <div>
         <h1>NA Bench Forecast</h1>
-        <p class="sub">North America FNC workforce planning dashboard with actual bench through {_actuals_label} and quarter-end forecast visibility.</p>
+        <p class="sub">North America FNC workforce planning dashboard with actual bench through {_actuals_label} and Q4 quarter-end forecast visibility.</p>
         <div class="dash-hero-meta">
             <span>Actuals loaded through {_actuals_label}</span>
             <span>Forecast view through Wk 13</span>
-            <span>Historic + Q3 comparison included</span>
+            <span>Historic + Q4 comparison included</span>
         </div>
     </div>
 </div>
@@ -676,25 +676,26 @@ def load_historic() -> pd.DataFrame:
 
 @st.cache_data(ttl=60)
 def load_q3_comparison() -> pd.DataFrame:
-    """Read all three Q3 series directly from the fixed pivot block
-    in the Q3 2025 sheet: header at row 36 (0-indexed), data rows 37–49,
-    columns A=Week, B=Q3 26 Forecast, C=Q3 25 bench, D=Q3 Original Forecast.
+    """Read all three Q4 series directly from the fixed pivot block
+    in the Q4 2025 sheet: header at row 37 (1-indexed) = row 36 (0-indexed),
+    data rows 38–50 (1-indexed) = rows 37–49 (0-indexed),
+    columns A=Week, B=Q4 26 Forecast, C=Q4 25 bench, D=Q4 Original Forecast.
     You update this block manually each week — the dashboard reads it as-is.
     """
-    raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
+    raw = pd.read_excel(XLSX_PATH, sheet_name="Q4 2025", header=None)
     # Row 36 (0-indexed) is the header; rows 37-49 are the 13 data rows
     block = raw.iloc[36:50, 0:4].copy()
-    block.columns = ["Week", "Q3 26 Forecast", "Q3 25 bench", "Q3 Original Forecast"]
+    block.columns = ["Week", "Q4 26 Forecast", "Q4 25 bench", "Q4 Original Forecast"]
     block["Week"] = block["Week"].astype(str).str.strip()
     block = block[block["Week"].str.match(r"Wk\s*\d+", na=False)].reset_index(drop=True)
-    for col in ["Q3 26 Forecast", "Q3 25 bench", "Q3 Original Forecast"]:
+    for col in ["Q4 26 Forecast", "Q4 25 bench", "Q4 Original Forecast"]:
         block[col] = pd.to_numeric(block[col], errors="coerce")
     return block.set_index("Week")
 
 
 @st.cache_data(ttl=60)
 def load_q3_center_detail() -> pd.DataFrame:
-    raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
+    raw = pd.read_excel(XLSX_PATH, sheet_name="Q4 2025", header=None)
     start = None
     for i, row in raw.iterrows():
         if str(row.iloc[0]).strip() == "Center" and str(row.iloc[1]).strip() in ("W1", "Wk1"):
@@ -722,7 +723,7 @@ def load_q3_center_detail() -> pd.DataFrame:
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "\U0001f4cb  Bench Forecast",
     "\U0001f4c8  Historic Bench",
-    "\U0001f4ca  Q3 Comparison",
+    "\U0001f4ca  Q4 Comparison",
     "\U0001f4e7  Executive Summary",
     "\U0001f4cb  Audit Log",
 ])
@@ -1222,42 +1223,42 @@ with tab2:
 
 
 # =============================================================================
-# TAB 3 - Q3 2025 vs Q3 2026 Comparison
+# TAB 3 - Q4 2025 vs Q4 2026 Comparison
 # =============================================================================
 with tab3:
-    st.markdown(f'<div class="sec-title">Q3 26 Forecast . Q3 25 Actual . Q3 26 Original Forecast</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-title">Q4 26 Forecast . Q4 25 Actual . Q4 26 Original Forecast</div>', unsafe_allow_html=True)
 
     df_q3 = load_q3_comparison()
 
     if df_q3.empty:
-        st.warning("Could not load Q3 comparison data.")
+        st.warning("Could not load Q4 comparison data.")
     else:
         show_detail = st.checkbox("Show per-center Net bench detail", value=False)
 
         # -- KPI strip -----------------------------------------------------
-        if "Q3 26 Forecast" in df_q3.columns and "Q3 25 bench" in df_q3.columns:
+        if "Q4 26 Forecast" in df_q3.columns and "Q4 25 bench" in df_q3.columns:
             def _safe_int(val, default=0):
                 v = pd.to_numeric(val, errors="coerce")
                 return int(v) if pd.notna(v) else default
 
-            _v26 = pd.to_numeric(df_q3["Q3 26 Forecast"].iloc[-1], errors="coerce")
-            _v25 = pd.to_numeric(df_q3["Q3 25 bench"].iloc[-1],    errors="coerce")
+            _v26 = pd.to_numeric(df_q3["Q4 26 Forecast"].iloc[-1], errors="coerce")
+            _v25 = pd.to_numeric(df_q3["Q4 25 bench"].iloc[-1],    errors="coerce")
             delta_last = int(_v26 - _v25) if pd.notna(_v26) and pd.notna(_v25) else 0
             st.markdown("<br>", unsafe_allow_html=True)
             q1, q2, q3_col, q4 = st.columns(4)
-            q1.metric("Q3 26 Forecast peak",    f"{_safe_int(df_q3['Q3 26 Forecast'].max())}")
-            q2.metric("Q3 25 Bench trough",      f"{_safe_int(df_q3['Q3 25 bench'].min())}")
+            q1.metric("Q4 26 Forecast peak",    f"{_safe_int(df_q3['Q4 26 Forecast'].max())}")
+            q2.metric("Q4 25 Bench trough",      f"{_safe_int(df_q3['Q4 25 bench'].min())}")
             q3_col.metric("Wk 13 Delta (26 vs 25)", f"{delta_last:+d}")
-            q4.metric("Q3 Orig Forecast peak",   f"{_safe_int(df_q3['Q3 Original Forecast'].max()) if 'Q3 Original Forecast' in df_q3.columns else 'N/A'}")
+            q4.metric("Q4 Orig Forecast peak",   f"{_safe_int(df_q3['Q4 Original Forecast'].max()) if 'Q4 Original Forecast' in df_q3.columns else 'N/A'}")
             st.markdown("<br>", unsafe_allow_html=True)
 
         # -- Chart ---------------------------------------------------------
         fig_q3 = go.Figure()
 
         series_cfg = {
-            "Q3 26 Forecast":       dict(color=C_FORECAST, dash="solid", width=2.8, symbol="circle",  size=8),
-            "Q3 25 bench":          dict(color=C_ACTUAL,   dash="solid", width=2.8, symbol="square",  size=8),
-            "Q3 Original Forecast": dict(color=C_ORIG,     dash="dash",  width=1.8, symbol="diamond", size=6),
+            "Q4 26 Forecast":       dict(color=C_FORECAST, dash="solid", width=2.8, symbol="circle",  size=8),
+            "Q4 25 bench":          dict(color=C_ACTUAL,   dash="solid", width=2.8, symbol="square",  size=8),
+            "Q4 Original Forecast": dict(color=C_ORIG,     dash="dash",  width=1.8, symbol="diamond", size=6),
         }
 
         for col in df_q3.columns:
@@ -1277,11 +1278,11 @@ with tab3:
                 hovertemplate=f"<b>{col}</b><br>%{{x}}: %{{y}} heads<extra></extra>",
             ))
 
-        # Shaded band between Q3 26 forecast and Q3 25 bench
-        if "Q3 26 Forecast" in df_q3.columns and "Q3 25 bench" in df_q3.columns:
+        # Shaded band between Q4 26 forecast and Q4 25 bench
+        if "Q4 26 Forecast" in df_q3.columns and "Q4 25 bench" in df_q3.columns:
             x_vals = df_q3.index.tolist()
-            upper  = df_q3["Q3 26 Forecast"].tolist()
-            lower  = df_q3["Q3 25 bench"].tolist()
+            upper  = df_q3["Q4 26 Forecast"].tolist()
+            lower  = df_q3["Q4 25 bench"].tolist()
             fig_q3.add_trace(go.Scatter(
                 x=x_vals + x_vals[::-1],
                 y=upper + lower[::-1],
@@ -1296,7 +1297,7 @@ with tab3:
         layout3.update(dict(
             height=440,
             title=dict(
-                text="Q3 Total Bench Comparison - 13-week view",
+                text="Q4 Total Bench Comparison - 13-week view",
                 font=dict(size=13, color=TEXT_SEC),
                 x=0,
             ),
@@ -1310,7 +1311,7 @@ with tab3:
         # -- Per-center stacked detail (optional) --------------------------
         if show_detail:
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f'<div class="sec-title">Per-Center Q3 2025 Net Bench by Week</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sec-title">Per-Center Q4 2025 Net Bench by Week</div>', unsafe_allow_html=True)
             df_detail = load_q3_center_detail()
             if not df_detail.empty:
                 fig_det = go.Figure()
@@ -1373,9 +1374,9 @@ with tab4:
     _low_center    = min(_w1_series, key=_w1_series.get)
     _low_center_v  = _w1_series[_low_center]
 
-    # Q3 comparison data
+    # Q4 comparison data
     def _q3_int(series, agg="first"):
-        """Safely extract an int from a Q3 series, returning 0 on NaN/empty."""
+        """Safely extract an int from a Q4 series, returning 0 on NaN/empty."""
         if series is None or len(series) == 0:
             return 0
         val = series.iloc[0] if agg == "first" else (series.max() if agg == "max" else series.min())
@@ -1383,8 +1384,8 @@ with tab4:
         return int(v) if pd.notna(v) else 0
 
     _q3 = load_q3_comparison()
-    _q3_fc_col = _q3["Q3 26 Forecast"] if not _q3.empty and "Q3 26 Forecast" in _q3.columns else None
-    _q3_ac_col = _q3["Q3 25 bench"]    if not _q3.empty and "Q3 25 bench"    in _q3.columns else None
+    _q3_fc_col = _q3["Q4 26 Forecast"] if not _q3.empty and "Q4 26 Forecast" in _q3.columns else None
+    _q3_ac_col = _q3["Q4 25 bench"]    if not _q3.empty and "Q4 25 bench"    in _q3.columns else None
     _q3_fc_w1  = _q3_int(_q3_fc_col, "first")
     _q3_ac_w1  = _q3_int(_q3_ac_col, "first")
     _q3_delta  = _q3_fc_w1 - _q3_ac_w1
@@ -1405,7 +1406,7 @@ with tab4:
         sender_name  = st.text_input("From (your name)",    value="Workforce Planning Team", key="em_from")
         report_week  = st.text_input("Reporting week label", value=WEEKS[0],                 key="em_week")
     with em2:
-        quarter_label = st.text_input("Quarter",    value="Q3 2026",    key="em_qtr")
+        quarter_label = st.text_input("Quarter",    value="Q4 2026",    key="em_qtr")
         region_label  = st.text_input("Region",     value="NA FNC",     key="em_region")
     with em3:
         bench_target = 5.0
@@ -1783,9 +1784,9 @@ with tab4:
 
     # Series colors — keep brand colors but use slightly deeper versions for light bg
     _Q3_COLORS = {
-        "Q3 26 Forecast":   "#0284c7",   # darker sky blue
-        "Q3 25 Bench":      "#059669",   # darker emerald
-        "Q3 Orig Forecast": "#64748b",   # slate
+        "Q4 26 Forecast":   "#0284c7",   # darker sky blue
+        "Q4 25 Bench":      "#059669",   # darker emerald
+        "Q4 Orig Forecast": "#64748b",   # slate
     }
 
     def _fig_to_png_bytes(fig) -> bytes:
@@ -1813,14 +1814,14 @@ with tab4:
             f'alt="chart"/>'
         )
 
-    # -- Chart 1: Q3 Comparison - 3-line chart (matplotlib PNG) -----------
+    # -- Chart 1: Q4 Comparison - 3-line chart (matplotlib PNG) -----------
     def _to_num_list(series):
         return pd.to_numeric(series, errors="coerce").tolist()
 
     q3_series = {
-        "Q3 26 Forecast":   (_to_num_list(_q3["Q3 26 Forecast"])      if not _q3.empty and "Q3 26 Forecast"      in _q3.columns else []),
-        "Q3 25 Bench":      (_to_num_list(_q3["Q3 25 bench"])          if not _q3.empty and "Q3 25 bench"         in _q3.columns else []),
-        "Q3 Orig Forecast": (_to_num_list(_q3["Q3 Original Forecast"]) if not _q3.empty and "Q3 Original Forecast" in _q3.columns else []),
+        "Q4 26 Forecast":   (_to_num_list(_q3["Q4 26 Forecast"])      if not _q3.empty and "Q4 26 Forecast"      in _q3.columns else []),
+        "Q4 25 Bench":      (_to_num_list(_q3["Q4 25 bench"])          if not _q3.empty and "Q4 25 bench"         in _q3.columns else []),
+        "Q4 Orig Forecast": (_to_num_list(_q3["Q4 Original Forecast"]) if not _q3.empty and "Q4 Original Forecast" in _q3.columns else []),
     }
     q3_wk_labels = list(_q3.index) if not _q3.empty else WEEKS
 
@@ -1831,7 +1832,7 @@ with tab4:
             if not vals:
                 continue
             col = _Q3_COLORS[name]
-            ls  = "--" if name == "Q3 Orig Forecast" else "-"
+            ls  = "--" if name == "Q4 Orig Forecast" else "-"
             ax1.plot(q3_wk_labels, vals, color=col, linewidth=2.2, linestyle=ls,
                      marker="o", markersize=5, label=name)
             for i, v in enumerate(vals):
@@ -1849,7 +1850,7 @@ with tab4:
             spine.set_edgecolor(_CH_SPINE)
         ax1.tick_params(colors=_CH_SPINE)
         ax1.grid(axis="y", color=_CH_GRID, linewidth=0.6)
-        ax1.set_title("Q3 Comparison - Forecast vs Actuals", fontsize=9,
+        ax1.set_title("Q4 Comparison - Forecast vs Actuals", fontsize=9,
                       color=_CH_TICK, pad=6)
         ax1.legend(fontsize=7.5, facecolor=_CH_LEG_BG, edgecolor=_CH_SPINE,
                    loc="upper right")
@@ -2022,9 +2023,9 @@ with tab4:
         # Collapsible: Commentary
         + _section("Commentary", para_blocks, open_by_default=True)
 
-        # Collapsible: Q3 Comparison chart
+        # Collapsible: Q4 Comparison chart
         + _section(
-            "Q3 Comparison &#8212; Forecast vs Actuals",
+            "Q4 Comparison &#8212; Forecast vs Actuals",
             q3_chart_svg,
             open_by_default=True,
         )
@@ -2068,7 +2069,7 @@ with tab4:
                 f'{"&#9888; ABOVE TARGET" if _avg_pct > bench_target else "&#10003; ON TARGET"}</td></tr>'
                 f'<tr><td style="padding:6px 10px;color:{EM_MUTED}">YoY W1 Delta</td>'
                 f'<td style="padding:6px 10px;color:{EM_WARN if _q3_delta > 0 else EM_GOOD};font-weight:700">'
-                f'{_q3_delta:+d} vs Q3 2025 ({_q3_ac_w1} actual &#8594; {_q3_fc_w1} forecast)</td></tr>'
+                f'{_q3_delta:+d} vs Q4 2025 ({_q3_ac_w1} actual &#8594; {_q3_fc_w1} forecast)</td></tr>'
                 f'</table>'
             ),
             open_by_default=True,
