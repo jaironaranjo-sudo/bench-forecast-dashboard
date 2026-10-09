@@ -682,7 +682,7 @@ def load_q3_comparison() -> pd.DataFrame:
     columns A=Week, B=Q4 26 Forecast, C=Q4 25 bench, D=Q4 Original Forecast.
     You update this block manually each week — the dashboard reads it as-is.
     """
-    raw = pd.read_excel(XLSX_PATH, sheet_name="Q4 2025", header=None)
+    raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
     # Row 36 (0-indexed) is the header; rows 37-49 are the 13 data rows
     block = raw.iloc[36:50, 0:4].copy()
     block.columns = ["Week", "Q4 26 Forecast", "Q4 25 bench", "Q4 Original Forecast"]
@@ -695,7 +695,7 @@ def load_q3_comparison() -> pd.DataFrame:
 
 @st.cache_data(ttl=60)
 def load_q3_center_detail() -> pd.DataFrame:
-    raw = pd.read_excel(XLSX_PATH, sheet_name="Q4 2025", header=None)
+    raw = pd.read_excel(XLSX_PATH, sheet_name="Q3 2025", header=None)
     start = None
     for i, row in raw.iterrows():
         if str(row.iloc[0]).strip() == "Center" and str(row.iloc[1]).strip() in ("W1", "Wk1"):
