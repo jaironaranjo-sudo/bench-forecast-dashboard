@@ -107,9 +107,17 @@ _required_pw = _get_password()
 
 
 def audit_log(action: str, user: str, df: pd.DataFrame | None = None) -> None:
-    """Append a row to the CSV audit log."""
-    import csv
+    """Append a row to the audit log.
+
+    Primary store: an 'Audit Log' sheet inside the Excel workbook — persists
+    across Streamlit Cloud container restarts because the workbook is tracked
+    in Git.
+    Fallback: the local CSV file (useful for local dev when the workbook is
+    read-only or not available).
+    """
+    import openpyxl
     from datetime import datetime, timezone
+
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     summary = ""
     if df is not None:
@@ -118,12 +126,26 @@ def audit_log(action: str, user: str, df: pd.DataFrame | None = None) -> None:
             total = sum(int(row[w]) for w in WEEKS if w in row)
             parts.append(f"{row['Center']}:{total}")
         summary = "; ".join(parts)
-    file_exists = AUDIT_LOG_PATH.exists()
-    with open(AUDIT_LOG_PATH, "a", newline="") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["timestamp", "action", "user", "summary"])
-        writer.writerow([timestamp, action, user, summary])
+
+    # --- Primary: write into the Excel workbook's 'Audit Log' sheet ----------
+    try:
+        wb = openpyxl.load_workbook(XLSX_PATH)
+        if "Audit Log" not in wb.sheetnames:
+            ws_audit = wb.create_sheet("Audit Log")
+            ws_audit.append(["timestamp", "action", "user", "summary"])
+        else:
+            ws_audit = wb["Audit Log"]
+        ws_audit.append([timestamp, action, user, summary])
+        wb.save(XLSX_PATH)
+    except Exception:
+        # --- Fallback: CSV file (local dev / read-only workbook) -------------
+        import csv
+        file_exists = AUDIT_LOG_PATH.exists()
+        with open(AUDIT_LOG_PATH, "a", newline="") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["timestamp", "action", "user", "summary"])
+            writer.writerow([timestamp, action, user, summary])
 
 
 if _required_pw:
@@ -642,6 +664,8 @@ def save_overrides(df: pd.DataFrame, changed_by: str = "unknown") -> None:
     import json
     with open(OVERRIDES_PATH, "w") as f:
         json.dump(df[["Center"] + WEEKS].to_dict(orient="records"), f, indent=2)
+    # Bust the cache so all users immediately see the new values
+    load_bench_forecast.clear()
     audit_log("save_forecast", changed_by, df)
 
 
@@ -2221,8 +2245,23 @@ with tab5:
     if not _admin_pw or st.session_state.get("audit_unlocked", False):
         st.caption("Records every login and every forecast save, with the user name and a per-center summary of the saved values.")
 
-        if AUDIT_LOG_PATH.exists():
+        # Primary: read from the 'Audit Log' sheet in the workbook
+        df_audit = None
+        try:
+            import openpyxl
+            _awb = openpyxl.load_workbook(XLSX_PATH, read_only=True, data_only=True)
+            if "Audit Log" in _awb.sheetnames:
+                _aws = _awb["Audit Log"]
+                _rows = list(_aws.values)
+                if len(_rows) > 1:
+                    df_audit = pd.DataFrame(_rows[1:], columns=_rows[0])
+        except Exception:
+            pass
+        # Fallback: CSV file (local dev)
+        if df_audit is None and AUDIT_LOG_PATH.exists():
             df_audit = pd.read_csv(AUDIT_LOG_PATH)
+
+        if df_audit is not None and not df_audit.empty:
             # Newest first
             df_audit = df_audit.iloc[::-1].reset_index(drop=True)
 
