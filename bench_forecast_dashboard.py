@@ -114,8 +114,9 @@ def audit_log(action: str, user: str, df: pd.DataFrame | None = None) -> None:
     in Git.
     Fallback: the local CSV file (useful for local dev when the workbook is
     read-only or not available).
+    Both stores are always attempted so the CSV stays in sync with the workbook.
     """
-    import openpyxl
+    import openpyxl, csv
     from datetime import datetime, timezone
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -138,14 +139,18 @@ def audit_log(action: str, user: str, df: pd.DataFrame | None = None) -> None:
         ws_audit.append([timestamp, action, user, summary])
         wb.save(XLSX_PATH)
     except Exception:
-        # --- Fallback: CSV file (local dev / read-only workbook) -------------
-        import csv
+        pass
+
+    # --- Always write to CSV too (local dev & backup, survives xlsx failures) -
+    try:
         file_exists = AUDIT_LOG_PATH.exists()
         with open(AUDIT_LOG_PATH, "a", newline="") as f:
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow(["timestamp", "action", "user", "summary"])
             writer.writerow([timestamp, action, user, summary])
+    except Exception:
+        pass
 
 
 if _required_pw:
@@ -229,7 +234,7 @@ except Exception:
 # DEFAULT:  hard-coded value below   →  safe default when neither is set
 # Advance by 1 each week as new actuals are uploaded to the Excel file.
 # -----------------------------------------------------------------------------
-_ACTUALS_DEFAULT = 0   # ← update this if no Secrets / env var is configured
+_ACTUALS_DEFAULT = 3   # ← advance by 1 each week as new actuals are uploaded
 
 try:
     ACTUALS_CUTOFF = int(st.secrets["forecast"]["actuals_through"])
@@ -585,6 +590,10 @@ def styled_table(
 # -----------------------------------------------------------------------------
 # Data loaders  (ttl=60 — re-reads Excel every 60 s)
 # -----------------------------------------------------------------------------
+# Clear on every startup so new xlsx actuals are immediately visible.
+# The cache still suppresses redundant re-reads within the same browser session.
+load_bench_forecast_cache_cleared = False
+
 @st.cache_data(ttl=60)
 def load_bench_forecast() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
@@ -596,9 +605,33 @@ def load_bench_forecast() -> pd.DataFrame:
 
 
 def load_overrides() -> pd.DataFrame | None:
-    """Load persisted user edits from the Excel file (Bench Forecast sheet).
-    Falls back to the legacy JSON file if present, then returns None."""
-    # Primary: read edits stored back in the Excel workbook
+    """Load persisted user edits.
+
+    Priority order:
+    1. JSON sidecar file (bench_overrides.json) — written by save_overrides as
+       the canonical record of the last user save.  If it exists and is valid,
+       it is the authoritative source of edits.
+    2. Excel workbook Bench Forecast sheet — source-of-truth for actuals loaded
+       by the planner.  Used as fallback when no JSON sidecar exists yet (e.g.
+       first run after actuals upload, before any in-dashboard save).
+    """
+    import json
+    # Primary: JSON sidecar written by save_overrides
+    if OVERRIDES_PATH.exists():
+        try:
+            with open(OVERRIDES_PATH, "r") as f:
+                data = json.load(f)
+            df = pd.DataFrame(data)
+            df["Center"] = df["Center"].astype(str)
+            for w in WEEKS:
+                if w in df.columns:
+                    df[w] = pd.to_numeric(df[w], errors="coerce").fillna(0).astype(int)
+            result = df[["Center"] + WEEKS]
+            if not result.empty:
+                return result
+        except Exception:
+            pass
+    # Fallback: read directly from the Excel workbook (actuals upload, no prior save)
     try:
         raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
         raw.columns = ["Center"] + WEEKS + (list(raw.columns[14:]) if len(raw.columns) > 14 else [])
@@ -610,20 +643,6 @@ def load_overrides() -> pd.DataFrame | None:
             return result
     except Exception:
         pass
-    # Legacy fallback: JSON file written by old save mechanism
-    if OVERRIDES_PATH.exists():
-        try:
-            import json
-            with open(OVERRIDES_PATH, "r") as f:
-                data = json.load(f)
-            df = pd.DataFrame(data)
-            df["Center"] = df["Center"].astype(str)
-            for w in WEEKS:
-                if w in df.columns:
-                    df[w] = pd.to_numeric(df[w], errors="coerce").fillna(0).astype(int)
-            return df[["Center"] + WEEKS]
-        except Exception:
-            pass
     return None
 
 
@@ -643,7 +662,7 @@ def save_overrides(df: pd.DataFrame, changed_by: str = "unknown") -> None:
             center_rows[str(cell_val)] = row_idx
 
     # Map week label -> column index (1-based); header is row 1
-    header = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 2)]
+    header = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
     week_cols: dict[str, int] = {}
     for col_idx, h in enumerate(header, start=1):
         if h in WEEKS:
@@ -921,12 +940,34 @@ window.addEventListener('load', recalc);
 
 
 with tab1:
+    # ---- On every cold start, clear the 60 s cache so the new xlsx actuals
+    #      are picked up immediately rather than waiting for the TTL to expire.
+    global load_bench_forecast_cache_cleared
+    if not load_bench_forecast_cache_cleared:
+        load_bench_forecast.clear()
+        load_bench_forecast_cache_cleared = True
+
     # ---- Load base data, then apply any persisted overrides ----------------
     df_forecast = load_bench_forecast()
     saved = load_overrides()
 
     if "forecast_data" not in st.session_state:
-        st.session_state["forecast_data"] = saved.copy() if saved is not None else df_forecast.copy()
+        if saved is not None:
+            # Merge: keep forecast-week edits from the JSON sidecar, but always
+            # use the xlsx as the authoritative source for locked actual weeks so
+            # that newly uploaded actuals (e.g. Wk 03) are reflected immediately.
+            merged = saved.copy()
+            actual_weeks_locked = WEEKS[:ACTUALS_CUTOFF]
+            if actual_weeks_locked:
+                xlsx_indexed = df_forecast.set_index("Center")
+                for idx, row in merged.iterrows():
+                    center = row["Center"]
+                    if center in xlsx_indexed.index:
+                        for w in actual_weeks_locked:
+                            merged.at[idx, w] = int(xlsx_indexed.loc[center, w])
+            st.session_state["forecast_data"] = merged
+        else:
+            st.session_state["forecast_data"] = df_forecast.copy()
 
     working = st.session_state["forecast_data"].copy()
 
