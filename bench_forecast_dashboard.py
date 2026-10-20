@@ -229,8 +229,8 @@ except Exception:
 
 # -----------------------------------------------------------------------------
 # Actuals cutoff - how many weeks from the start are locked as "actual bench"
-# PRIMARY:  Streamlit Cloud Secrets  →  [forecast]  actuals_through = 7
-# FALLBACK: ACTUALS_THROUGH env var  →  export ACTUALS_THROUGH=7
+# PRIMARY:  Streamlit Cloud Secrets  →  [forecast]  actuals_through = 3
+# FALLBACK: ACTUALS_THROUGH env var  →  export ACTUALS_THROUGH=3
 # DEFAULT:  hard-coded value below   →  safe default when neither is set
 # Advance by 1 each week as new actuals are uploaded to the Excel file.
 # -----------------------------------------------------------------------------
@@ -588,39 +588,18 @@ def styled_table(
 
 
 # -----------------------------------------------------------------------------
-# Data loaders  (ttl=60 — re-reads Excel every 60 s)
+# Data loaders
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=60)
 def load_bench_forecast() -> pd.DataFrame:
+    """Read the Bench Forecast sheet. Cached with a 60-second TTL.
+    Call load_bench_forecast.clear() to force an immediate re-read."""
     raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
     raw.columns = ["Center"] + WEEKS + (list(raw.columns[14:]) if len(raw.columns) > 14 else [])
     raw = raw[raw["Center"].isin(CENTERS)].reset_index(drop=True)
     for w in WEEKS:
         raw[w] = pd.to_numeric(raw[w], errors="coerce").fillna(0).astype(int)
     return raw[["Center"] + WEEKS]
-
-
-def load_overrides() -> pd.DataFrame | None:
-    """Load the current forecast data.
-
-    The Excel workbook is ALWAYS the single source of truth — it contains both
-    the actuals uploaded by the planner and any forecast values saved through
-    the dashboard.  The JSON sidecar (bench_overrides.json) is written as a
-    secondary backup after every in-dashboard save but is never read back; this
-    prevents stale JSON from shadowing a freshly updated xlsx.
-    """
-    try:
-        raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
-        raw.columns = ["Center"] + WEEKS + (list(raw.columns[14:]) if len(raw.columns) > 14 else [])
-        raw = raw[raw["Center"].isin(CENTERS)].reset_index(drop=True)
-        for w in WEEKS:
-            raw[w] = pd.to_numeric(raw[w], errors="coerce").fillna(0).astype(int)
-        result = raw[["Center"] + WEEKS]
-        if not result.empty:
-            return result
-    except Exception:
-        pass
-    return None
 
 
 def save_overrides(df: pd.DataFrame, changed_by: str = "unknown") -> None:
@@ -917,16 +896,12 @@ window.addEventListener('load', recalc);
 
 
 with tab1:
-    # ---- Always reload from xlsx on every page render ----------------------
-    # The xlsx is the single source of truth. We clear the Streamlit cache and
-    # re-read on every render so that actuals uploaded directly into the file
-    # are always reflected immediately — no stale session state possible.
+    # ---- Load fresh data from xlsx on every page render --------------------
+    # Clear the cache then load so any xlsx update (actuals uploaded, forecast
+    # saved by another user) is always reflected without waiting for the TTL.
     load_bench_forecast.clear()
-    fresh = load_overrides()
-    if fresh is not None:
-        st.session_state["forecast_data"] = fresh.copy()
-    elif "forecast_data" not in st.session_state:
-        st.session_state["forecast_data"] = load_bench_forecast().copy()
+    fresh = load_bench_forecast()
+    st.session_state["forecast_data"] = fresh.copy()
 
     working = st.session_state["forecast_data"].copy()
 
@@ -937,9 +912,7 @@ with tab1:
     with _btn_col:
         if st.button("🔄 Reload", key="reload_forecast_tab1", help="Reload latest data from the Excel file"):
             load_bench_forecast.clear()
-            fresh2 = load_overrides()
-            if fresh2 is not None:
-                st.session_state["forecast_data"] = fresh2.copy()
+            st.session_state["forecast_data"] = load_bench_forecast().copy()
             st.rerun()
 
     if EDITING_LOCKED:
@@ -1133,18 +1106,14 @@ with tab1:
     # -- Download -----------------------------------------------------------
     st.markdown("<br>", unsafe_allow_html=True)
 
-    @st.cache_data
-    def to_excel_bytes(df: pd.DataFrame) -> bytes:
-        import io
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Bench Forecast")
-        return buf.getvalue()
-
+    import io as _io
+    _dl_buf = _io.BytesIO()
     dl_df = pd.concat([edited, grand_total], ignore_index=True)
+    with pd.ExcelWriter(_dl_buf, engine="openpyxl") as _writer:
+        dl_df.to_excel(_writer, index=False, sheet_name="Bench Forecast")
     st.download_button(
         label="  Download updated forecast (.xlsx)",
-        data=to_excel_bytes(dl_df),
+        data=_dl_buf.getvalue(),
         file_name="NA_Bench_Forecast_updated.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
@@ -1527,7 +1496,6 @@ with tab4:
     forecast_end_total  = _gt_w13
     forecast_delta      = forecast_end_total - actual_total
     forecast_delta_color = GOOD if forecast_delta < 0 else WARN if forecast_delta > 0 else ACCENT
-    actual_avg_pct      = float(pd.Series(_gt_vals[:actuals_cutoff_week]).mean() / _hc * 100)
 
     # Regenerate button — busts the cache, reloads from Excel (picks up
     # any saves by other users), updates forecast_data, reruns the tab.
