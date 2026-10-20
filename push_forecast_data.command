@@ -13,7 +13,7 @@ echo "  📤  NA Bench Forecast — Push Data Update"
 echo "  ─────────────────────────────────────────────"
 echo ""
 
-# Check for Excel lock file (file is still open)
+# Check for Excel lock file (file is still open in Excel)
 if [ -f "~\$NA Bench Forecast.xlsx" ]; then
     echo "  ⚠️  ERROR: The file appears to be open in Excel."
     echo "       Please close it and double-click this script again."
@@ -30,9 +30,9 @@ if [ ! -f "NA Bench Forecast.xlsx" ]; then
     exit 1
 fi
 
-# Stage the xlsx (and overrides if any)
+# Stage the xlsx (and overrides backup if present)
 git add "NA Bench Forecast.xlsx"
-git add "bench_overrides.json" 2>/dev/null || true   # optional, may not exist
+git add "bench_overrides.json" 2>/dev/null || true
 
 # Check if there's actually anything staged
 if git diff --cached --quiet; then
@@ -53,6 +53,6 @@ echo ""
 git push origin main
 
 echo ""
-echo "  ✅  Done! Changes are live on Streamlit Cloud."
+echo "  ✅  Done! Streamlit Cloud will redeploy in ~60 seconds."
 echo ""
 read -p "  Press Enter to close..."

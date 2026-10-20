@@ -10,3 +10,6 @@ __pycache__/
 
 # Streamlit secrets - never commit real secrets
 .streamlit/secrets.toml
+
+# Virtual environment - self-contained, never commit
+.venv/
