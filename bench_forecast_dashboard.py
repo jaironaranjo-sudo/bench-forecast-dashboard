@@ -605,33 +605,14 @@ def load_bench_forecast() -> pd.DataFrame:
 
 
 def load_overrides() -> pd.DataFrame | None:
-    """Load persisted user edits.
+    """Load the current forecast data.
 
-    Priority order:
-    1. JSON sidecar file (bench_overrides.json) — written by save_overrides as
-       the canonical record of the last user save.  If it exists and is valid,
-       it is the authoritative source of edits.
-    2. Excel workbook Bench Forecast sheet — source-of-truth for actuals loaded
-       by the planner.  Used as fallback when no JSON sidecar exists yet (e.g.
-       first run after actuals upload, before any in-dashboard save).
+    The Excel workbook is ALWAYS the single source of truth — it contains both
+    the actuals uploaded by the planner and any forecast values saved through
+    the dashboard.  The JSON sidecar (bench_overrides.json) is written as a
+    secondary backup after every in-dashboard save but is never read back; this
+    prevents stale JSON from shadowing a freshly updated xlsx.
     """
-    import json
-    # Primary: JSON sidecar written by save_overrides
-    if OVERRIDES_PATH.exists():
-        try:
-            with open(OVERRIDES_PATH, "r") as f:
-                data = json.load(f)
-            df = pd.DataFrame(data)
-            df["Center"] = df["Center"].astype(str)
-            for w in WEEKS:
-                if w in df.columns:
-                    df[w] = pd.to_numeric(df[w], errors="coerce").fillna(0).astype(int)
-            result = df[["Center"] + WEEKS]
-            if not result.empty:
-                return result
-        except Exception:
-            pass
-    # Fallback: read directly from the Excel workbook (actuals upload, no prior save)
     try:
         raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
         raw.columns = ["Center"] + WEEKS + (list(raw.columns[14:]) if len(raw.columns) > 14 else [])
@@ -947,27 +928,14 @@ with tab1:
         load_bench_forecast.clear()
         load_bench_forecast_cache_cleared = True
 
-    # ---- Load base data, then apply any persisted overrides ----------------
-    df_forecast = load_bench_forecast()
+    # ---- Load data directly from xlsx (single source of truth) -------------
+    # load_overrides() now reads the xlsx directly, so saved == df_forecast.
+    # We keep the two-step pattern so a future "Reload data" button can bust
+    # the session without touching the cache.
     saved = load_overrides()
 
     if "forecast_data" not in st.session_state:
-        if saved is not None:
-            # Merge: keep forecast-week edits from the JSON sidecar, but always
-            # use the xlsx as the authoritative source for locked actual weeks so
-            # that newly uploaded actuals (e.g. Wk 03) are reflected immediately.
-            merged = saved.copy()
-            actual_weeks_locked = WEEKS[:ACTUALS_CUTOFF]
-            if actual_weeks_locked:
-                xlsx_indexed = df_forecast.set_index("Center")
-                for idx, row in merged.iterrows():
-                    center = row["Center"]
-                    if center in xlsx_indexed.index:
-                        for w in actual_weeks_locked:
-                            merged.at[idx, w] = int(xlsx_indexed.loc[center, w])
-            st.session_state["forecast_data"] = merged
-        else:
-            st.session_state["forecast_data"] = df_forecast.copy()
+        st.session_state["forecast_data"] = saved.copy() if saved is not None else load_bench_forecast().copy()
 
     working = st.session_state["forecast_data"].copy()
 
