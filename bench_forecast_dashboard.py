@@ -590,10 +590,6 @@ def styled_table(
 # -----------------------------------------------------------------------------
 # Data loaders  (ttl=60 — re-reads Excel every 60 s)
 # -----------------------------------------------------------------------------
-# Clear on every startup so new xlsx actuals are immediately visible.
-# The cache still suppresses redundant re-reads within the same browser session.
-load_bench_forecast_cache_cleared = False
-
 @st.cache_data(ttl=60)
 def load_bench_forecast() -> pd.DataFrame:
     raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
@@ -921,23 +917,30 @@ window.addEventListener('load', recalc);
 
 
 with tab1:
-    # ---- On every cold start, clear the 60 s cache so the new xlsx actuals
-    #      are picked up immediately rather than waiting for the TTL to expire.
-    global load_bench_forecast_cache_cleared
-    if not load_bench_forecast_cache_cleared:
-        load_bench_forecast.clear()
-        load_bench_forecast_cache_cleared = True
-
-    # ---- Load data directly from xlsx (single source of truth) -------------
-    # load_overrides() now reads the xlsx directly, so saved == df_forecast.
-    # We keep the two-step pattern so a future "Reload data" button can bust
-    # the session without touching the cache.
-    saved = load_overrides()
-
-    if "forecast_data" not in st.session_state:
-        st.session_state["forecast_data"] = saved.copy() if saved is not None else load_bench_forecast().copy()
+    # ---- Always reload from xlsx on every page render ----------------------
+    # The xlsx is the single source of truth. We clear the Streamlit cache and
+    # re-read on every render so that actuals uploaded directly into the file
+    # are always reflected immediately — no stale session state possible.
+    load_bench_forecast.clear()
+    fresh = load_overrides()
+    if fresh is not None:
+        st.session_state["forecast_data"] = fresh.copy()
+    elif "forecast_data" not in st.session_state:
+        st.session_state["forecast_data"] = load_bench_forecast().copy()
 
     working = st.session_state["forecast_data"].copy()
+
+    # ---- Reload button (top-right of section header) -----------------------
+    _hdr_col, _btn_col = st.columns([8, 1])
+    with _hdr_col:
+        pass  # section title rendered below based on lock state
+    with _btn_col:
+        if st.button("🔄 Reload", key="reload_forecast_tab1", help="Reload latest data from the Excel file"):
+            load_bench_forecast.clear()
+            fresh2 = load_overrides()
+            if fresh2 is not None:
+                st.session_state["forecast_data"] = fresh2.copy()
+            st.rerun()
 
     if EDITING_LOCKED:
         st.markdown(
