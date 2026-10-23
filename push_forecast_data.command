@@ -30,9 +30,10 @@ if [ ! -f "NA Bench Forecast.xlsx" ]; then
     exit 1
 fi
 
-# Stage the xlsx (and overrides backup if present)
+# Stage the xlsx, overrides, and audit log (all must persist across redeploys)
 git add "NA Bench Forecast.xlsx"
 git add "bench_overrides.json" 2>/dev/null || true
+git add "bench_audit_log.csv"  2>/dev/null || true
 
 # Check if there's actually anything staged
 if git diff --cached --quiet; then
@@ -44,7 +45,7 @@ fi
 
 # Commit with a timestamp
 TIMESTAMP=$(date "+%Y-%m-%d %H:%M")
-git commit -m "data: update NA Bench Forecast — $TIMESTAMP"
+git commit -m "data: update NA Bench Forecast + overrides + audit log — $TIMESTAMP"
 
 echo ""
 echo "  ✓  Committed. Pushing to GitHub..."

@@ -107,16 +107,14 @@ _required_pw = _get_password()
 
 
 def audit_log(action: str, user: str, df: pd.DataFrame | None = None) -> None:
-    """Append a row to the audit log.
+    """Append a row to the audit log CSV.
 
-    Primary store: an 'Audit Log' sheet inside the Excel workbook — persists
-    across Streamlit Cloud container restarts because the workbook is tracked
-    in Git.
-    Fallback: the local CSV file (useful for local dev when the workbook is
-    read-only or not available).
-    Both stores are always attempted so the CSV stays in sync with the workbook.
+    The CSV is the single audit store. It is git-tracked so it persists across
+    Streamlit Cloud redeploys as long as it is committed via push_forecast_data.command.
+    Any write errors are surfaced rather than silently swallowed so problems are
+    immediately visible.
     """
-    import openpyxl, csv
+    import csv
     from datetime import datetime, timezone
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -128,29 +126,12 @@ def audit_log(action: str, user: str, df: pd.DataFrame | None = None) -> None:
             parts.append(f"{row['Center']}:{total}")
         summary = "; ".join(parts)
 
-    # --- Primary: write into the Excel workbook's 'Audit Log' sheet ----------
-    try:
-        wb = openpyxl.load_workbook(XLSX_PATH)
-        if "Audit Log" not in wb.sheetnames:
-            ws_audit = wb.create_sheet("Audit Log")
-            ws_audit.append(["timestamp", "action", "user", "summary"])
-        else:
-            ws_audit = wb["Audit Log"]
-        ws_audit.append([timestamp, action, user, summary])
-        wb.save(XLSX_PATH)
-    except Exception:
-        pass
-
-    # --- Always write to CSV too (local dev & backup, survives xlsx failures) -
-    try:
-        file_exists = AUDIT_LOG_PATH.exists()
-        with open(AUDIT_LOG_PATH, "a", newline="") as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(["timestamp", "action", "user", "summary"])
-            writer.writerow([timestamp, action, user, summary])
-    except Exception:
-        pass
+    file_exists = AUDIT_LOG_PATH.exists()
+    with open(AUDIT_LOG_PATH, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["timestamp", "action", "user", "summary"])
+        writer.writerow([timestamp, action, user, summary])
 
 
 if _required_pw:
@@ -592,50 +573,51 @@ def styled_table(
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=60)
 def load_bench_forecast() -> pd.DataFrame:
-    """Read the Bench Forecast sheet. Cached with a 60-second TTL.
-    Call load_bench_forecast.clear() to force an immediate re-read."""
+    """Load forecast data.
+
+    Strategy (in priority order):
+    1. Start with the xlsx base — contains actuals (locked weeks) and the
+       original forecast baseline.
+    2. Overlay bench_overrides.json on top — this file holds every user-submitted
+       forecast edit and is git-tracked, so it survives Streamlit Cloud redeploys
+       even when a fresh xlsx is pushed.
+
+    This means: pushing a new xlsx to update actuals does NOT wipe user forecasts.
+    """
+    import json
     raw = pd.read_excel(XLSX_PATH, sheet_name="Bench Forecast", header=0)
     raw.columns = ["Center"] + WEEKS + (list(raw.columns[14:]) if len(raw.columns) > 14 else [])
     raw = raw[raw["Center"].isin(CENTERS)].reset_index(drop=True)
     for w in WEEKS:
         raw[w] = pd.to_numeric(raw[w], errors="coerce").fillna(0).astype(int)
-    return raw[["Center"] + WEEKS]
+    base = raw[["Center"] + WEEKS].copy()
+
+    # Apply overrides for forecast weeks only (actuals weeks stay from xlsx)
+    if OVERRIDES_PATH.exists():
+        try:
+            overrides = json.loads(OVERRIDES_PATH.read_text())
+            ov_map = {r["Center"]: r for r in overrides if r.get("Center") in CENTERS}
+            forecast_weeks = WEEKS[ACTUALS_CUTOFF:]
+            for idx, row in base.iterrows():
+                center = row["Center"]
+                if center in ov_map:
+                    for w in forecast_weeks:
+                        if w in ov_map[center]:
+                            base.at[idx, w] = int(ov_map[center][w])
+        except Exception:
+            pass  # corrupted JSON — fall back to xlsx values silently
+
+    return base
 
 
 def save_overrides(df: pd.DataFrame, changed_by: str = "unknown") -> None:
-    """Persist the edited forecast DataFrame back into the Excel workbook.
-    Writes only the center rows in the Bench Forecast sheet, leaving all other
-    rows (Grand Total, Bench %, HC, etc.) untouched."""
-    import openpyxl
-    wb = openpyxl.load_workbook(XLSX_PATH)
-    ws = wb["Bench Forecast"]
+    """Persist forecast edits to bench_overrides.json.
 
-    # Build a map of center name -> row number from the sheet
-    center_rows: dict[str, int] = {}
-    for row_idx, row in enumerate(ws.iter_rows(min_row=1), start=1):
-        cell_val = row[0].value
-        if cell_val in CENTERS:
-            center_rows[str(cell_val)] = row_idx
-
-    # Map week label -> column index (1-based); header is row 1
-    header = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
-    week_cols: dict[str, int] = {}
-    for col_idx, h in enumerate(header, start=1):
-        if h in WEEKS:
-            week_cols[str(h)] = col_idx
-
-    # Write updated values
-    for _, row in df[["Center"] + WEEKS].iterrows():
-        center = row["Center"]
-        if center not in center_rows:
-            continue
-        r = center_rows[center]
-        for w in WEEKS:
-            if w in week_cols:
-                ws.cell(row=r, column=week_cols[w]).value = int(row[w])
-
-    wb.save(XLSX_PATH)
-    # Also write JSON as secondary backup for portability
+    overrides.json is the authoritative user-edit store. It is git-tracked and
+    therefore survives Streamlit Cloud redeploys. The xlsx is NOT written here
+    so that pushing a fresh xlsx (to update actuals) does not conflict with or
+    overwrite user forecast values.
+    """
     import json
     with open(OVERRIDES_PATH, "w") as f:
         json.dump(df[["Center"] + WEEKS].to_dict(orient="records"), f, indent=2)
@@ -2225,21 +2207,8 @@ with tab5:
     if not _admin_pw or st.session_state.get("audit_unlocked", False):
         st.caption("Records every login and every forecast save, with the user name and a per-center summary of the saved values.")
 
-        # Primary: read from the 'Audit Log' sheet in the workbook
-        df_audit = None
-        try:
-            import openpyxl
-            _awb = openpyxl.load_workbook(XLSX_PATH, read_only=True, data_only=True)
-            if "Audit Log" in _awb.sheetnames:
-                _aws = _awb["Audit Log"]
-                _rows = list(_aws.values)
-                if len(_rows) > 1:
-                    df_audit = pd.DataFrame(_rows[1:], columns=_rows[0])
-        except Exception:
-            pass
-        # Fallback: CSV file (local dev)
-        if df_audit is None and AUDIT_LOG_PATH.exists():
-            df_audit = pd.read_csv(AUDIT_LOG_PATH)
+        # Read directly from the CSV — single source of truth
+        df_audit = pd.read_csv(AUDIT_LOG_PATH) if AUDIT_LOG_PATH.exists() else None
 
         if df_audit is not None and not df_audit.empty:
             # Newest first
