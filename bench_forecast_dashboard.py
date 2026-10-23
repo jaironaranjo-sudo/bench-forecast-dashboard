@@ -477,6 +477,74 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
+# Data integrity banner — shown on every page load so users can instantly
+# verify what is actually stored in overrides.json
+# -----------------------------------------------------------------------------
+def _integrity_banner() -> None:
+    """Render a compact banner showing the current stored state of overrides.json
+    including per-center totals, a SHA-256 fingerprint, and the last-save timestamp."""
+    import json, hashlib
+
+    if not OVERRIDES_PATH.exists():
+        st.warning("⚠️  bench_overrides.json not found — the dashboard is reading from the Excel file only.")
+        return
+
+    try:
+        raw_text = OVERRIDES_PATH.read_text()
+        data = json.loads(raw_text)
+    except Exception as e:
+        st.error(f"⚠️  bench_overrides.json is unreadable: {e}")
+        return
+
+    sha = hashlib.sha256(raw_text.encode()).hexdigest()[:12]
+
+    # Last save from audit log
+    last_save = "—"
+    last_user = "—"
+    if AUDIT_LOG_PATH.exists():
+        try:
+            import csv
+            with open(AUDIT_LOG_PATH, newline="") as f:
+                rows = [r for r in csv.DictReader(f) if r.get("action") == "save_forecast"]
+            if rows:
+                last_save = rows[-1]["timestamp"]
+                last_user = rows[-1]["user"]
+        except Exception:
+            pass
+
+    # Per-center totals from overrides.json
+    center_totals = {r["Center"]: sum(r.get(w, 0) for w in WEEKS) for r in data if r.get("Center") in CENTERS}
+    grand = sum(center_totals.values())
+
+    pills = "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;'
+        f'border-radius:12px;background:{CENTER_ROW_COLORS.get(c,("",""))[0]};'
+        f'color:{CENTER_ROW_COLORS.get(c,("#525252","#161616"))[1]};'
+        f'font-size:0.73rem;font-weight:600;border:1px solid rgba(0,0,0,0.08);margin:2px;">'
+        f'{c}: {center_totals.get(c, "?")}</span>'
+        for c in CENTERS
+    )
+
+    st.markdown(
+        f'<div style="background:#f0f7ff;border:1px solid #0f62fe;border-left:4px solid #0f62fe;'
+        f'border-radius:6px;padding:10px 16px;margin-bottom:14px;">'
+        f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
+        f'<div style="font-size:0.78rem;font-weight:700;color:#0043ce;">&#128204; Stored Forecast State</div>'
+        f'<div style="font-size:0.72rem;color:#525252;">'
+        f'Last saved: <strong>{last_save}</strong> by <strong>{last_user}</strong>'
+        f'&nbsp;&nbsp;|&nbsp;&nbsp;'
+        f'Grand Total: <strong>{grand}</strong>'
+        f'&nbsp;&nbsp;|&nbsp;&nbsp;'
+        f'Fingerprint: <code style="background:#e0e7ff;padding:1px 5px;border-radius:3px;">{sha}</code>'
+        f'</div></div>'
+        f'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+_integrity_banner()
+
+# -----------------------------------------------------------------------------
 # Shared chart layout defaults
 # -----------------------------------------------------------------------------
 CHART_LAYOUT = dict(
@@ -989,10 +1057,75 @@ with tab1:
                         updated_df = pd.DataFrame(new_rows)
                         save_overrides(updated_df, changed_by=st.session_state.get("bench_user", "unknown"))
                         st.session_state["forecast_data"] = updated_df.copy()
-                        st.success("Changes saved — they will persist across restarts.")
+                        st.session_state["last_save_df"] = updated_df.copy()
                         st.rerun()
 
         edited = working.copy()
+
+        # -- Post-save confirmation panel ------------------------------------
+        if "last_save_df" in st.session_state:
+            import json, hashlib
+            _saved = st.session_state["last_save_df"]
+            _raw   = json.dumps(_saved[["Center"] + WEEKS].to_dict(orient="records"), indent=2)
+            _sha   = hashlib.sha256(_raw.encode()).hexdigest()[:12]
+            _gt    = {w: int(_saved[w].sum()) for w in WEEKS}
+
+            _rows_html = ""
+            for _, _r in _saved.iterrows():
+                _c   = _r["Center"]
+                _bg, _fg = CENTER_ROW_COLORS.get(_c, (SURFACE, TEXT_PRI))
+                _cells = "".join(
+                    f'<td style="text-align:center;padding:4px 8px;border:1px solid {BORDER};'
+                    f'background:{_bg};color:{_fg};font-size:0.78rem;">{int(_r[w])}</td>'
+                    for w in WEEKS
+                )
+                _rows_html += (
+                    f'<tr><td style="padding:4px 10px;border:1px solid {BORDER};background:{_bg};'
+                    f'color:{_fg};font-weight:700;font-size:0.78rem;white-space:nowrap;">{_c}</td>'
+                    f'{_cells}</tr>'
+                )
+            _gt_cells = "".join(
+                f'<td style="text-align:center;padding:4px 8px;border:1px solid {BORDER};'
+                f'background:{TBL_TOTAL_BG};color:{TBL_TOTAL_FG};font-weight:700;font-size:0.78rem;">'
+                f'{_gt[w]}</td>'
+                for w in WEEKS
+            )
+            _hdr_cells = "".join(
+                f'<th style="text-align:center;padding:5px 8px;background:{TBL_HEADER_BG};'
+                f'color:{TBL_HEADER_FG};font-size:0.7rem;font-weight:700;border:1px solid {BORDER};">'
+                f'{w}</th>'
+                for w in WEEKS
+            )
+            _confirm_html = f"""
+<div style="background:#defbe6;border:1px solid #198038;border-left:4px solid #198038;
+border-radius:6px;padding:12px 16px;margin-bottom:14px;">
+  <div style="font-size:0.82rem;font-weight:700;color:#0e6027;margin-bottom:8px;">
+    &#10003; Save confirmed — verify the values below match what you intended
+  </div>
+  <div style="overflow-x:auto;">
+    <table style="border-collapse:collapse;width:100%;font-family:Inter,system-ui,sans-serif;">
+      <thead><tr>
+        <th style="text-align:left;padding:5px 10px;background:{TBL_HEADER_BG};color:{TBL_HEADER_FG};
+            font-size:0.7rem;font-weight:700;border:1px solid {BORDER};">Center</th>
+        {_hdr_cells}
+      </tr></thead>
+      <tbody>
+        {_rows_html}
+        <tr>
+          <td style="padding:4px 10px;border:1px solid {BORDER};background:{TBL_TOTAL_BG};
+              color:{TBL_TOTAL_FG};font-weight:700;font-size:0.78rem;">Grand Total</td>
+          {_gt_cells}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top:8px;font-size:0.72rem;color:#525252;">
+    Fingerprint: <code style="background:#d1fae5;padding:1px 5px;border-radius:3px;">{_sha}</code>
+    &nbsp;&middot;&nbsp; Saved to <strong>bench_overrides.json</strong>
+    &nbsp;&middot;&nbsp; &#9888; Run <strong>push_forecast_data.command</strong> to commit this to GitHub
+  </div>
+</div>"""
+            st.markdown(_confirm_html, unsafe_allow_html=True)
 
     # -- Grand Total + Bench % - flush below the editable table -----------
     grand_total = edited[WEEKS].sum().to_frame().T
@@ -2209,6 +2342,67 @@ with tab5:
 
     if not _admin_pw or st.session_state.get("audit_unlocked", False):
         st.caption("Records every login and every forecast save, with the user name and a per-center summary of the saved values.")
+
+        # -- Weekly operations checklist ------------------------------------
+        import json as _json, hashlib as _hl
+        _ov_ok   = OVERRIDES_PATH.exists()
+        _csv_ok  = AUDIT_LOG_PATH.exists()
+        _ov_sha  = _hl.sha256(OVERRIDES_PATH.read_bytes()).hexdigest()[:12] if _ov_ok else "—"
+        _ov_data = _json.loads(OVERRIDES_PATH.read_text()) if _ov_ok else []
+        _ov_gt   = sum(
+            sum(r.get(w, 0) for w in WEEKS)
+            for r in _ov_data if r.get("Center") in CENTERS
+        )
+        _last_audit_save = "—"
+        _last_audit_user = "—"
+        if _csv_ok:
+            try:
+                import csv as _csv
+                with open(AUDIT_LOG_PATH, newline="") as _f:
+                    _rows = [_r for _r in _csv.DictReader(_f) if _r.get("action") == "save_forecast"]
+                if _rows:
+                    _last_audit_save = _rows[-1]["timestamp"]
+                    _last_audit_user = _rows[-1]["user"]
+            except Exception:
+                pass
+
+        def _check(ok, label):
+            icon = "&#10003;" if ok else "&#10007;"
+            color = "#198038" if ok else "#da1e28"
+            return (
+                f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;'
+                f'border-bottom:1px solid {BORDER};">'
+                f'<span style="font-size:1rem;color:{color};font-weight:700;">{icon}</span>'
+                f'<span style="font-size:0.83rem;color:{TEXT_PRI};">{label}</span></div>'
+            )
+
+        _checks = (
+            _check(_ov_ok, f"bench_overrides.json exists &nbsp;·&nbsp; fingerprint: "
+                   f"<code style='background:#e8e8e8;padding:1px 5px;border-radius:3px;font-size:0.75rem;'>{_ov_sha}</code>"
+                   f" &nbsp;·&nbsp; Grand Total stored: <strong>{_ov_gt}</strong>")
+            + _check(_csv_ok, "bench_audit_log.csv exists")
+            + _check(_last_audit_save != "—",
+                     f"Last forecast save: <strong>{_last_audit_save}</strong> by <strong>{_last_audit_user}</strong>")
+            + _check(True,
+                     "After every save session, run <strong>push_forecast_data.command</strong> "
+                     "to commit overrides.json + audit log to GitHub")
+            + _check(True,
+                     "To update actuals: set <code>actuals_through&nbsp;=&nbsp;0</code>, save, "
+                     "then restore <code>actuals_through&nbsp;=&nbsp;N</code> — values are preserved")
+            + _check(True,
+                     "To update xlsx baseline: push new xlsx via push_forecast_data.command — "
+                     "overrides.json forecast values are NOT overwritten")
+        )
+
+        st.markdown(
+            f'<div style="background:{SURFACE};border:1px solid {BORDER};border-radius:8px;'
+            f'padding:14px 18px;margin-bottom:20px;">'
+            f'<div style="font-size:0.78rem;font-weight:700;color:{ACCENT};text-transform:uppercase;'
+            f'letter-spacing:0.07em;margin-bottom:8px;">&#128203; Operations Checklist</div>'
+            f'{_checks}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
         # Read directly from the CSV — single source of truth
         df_audit = pd.read_csv(AUDIT_LOG_PATH) if AUDIT_LOG_PATH.exists() else None
