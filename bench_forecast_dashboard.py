@@ -660,11 +660,9 @@ def load_bench_forecast() -> pd.DataFrame:
         raw[w] = pd.to_numeric(raw[w], errors="coerce").fillna(0).astype(int)
     base = raw[["Center"] + WEEKS].copy()
 
-    # Overlay ALL weeks from overrides.json on top of the xlsx base.
-    # The "actuals are locked" rule is enforced in the edit form UI only —
-    # not here. If a user explicitly set actuals_through=0, edited actuals,
-    # then restored actuals_through=3, their saved actuals must still be
-    # respected. Filtering by ACTUALS_CUTOFF here would silently discard them.
+    # Overlay ONLY forecast weeks (after ACTUALS_CUTOFF) from overrides.json.
+    # Actual weeks always come from the xlsx, so pushing a new xlsx updates
+    # actuals without being masked by older values stored in overrides.json.
     if OVERRIDES_PATH.exists():
         try:
             overrides = json.loads(OVERRIDES_PATH.read_text())
@@ -672,7 +670,7 @@ def load_bench_forecast() -> pd.DataFrame:
             for idx, row in base.iterrows():
                 center = row["Center"]
                 if center in ov_map:
-                    for w in WEEKS:
+                    for w in WEEKS[ACTUALS_CUTOFF:]:
                         if w in ov_map[center]:
                             base.at[idx, w] = int(ov_map[center][w])
         except Exception:
